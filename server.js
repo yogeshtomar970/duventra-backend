@@ -32,9 +32,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: [
-     "https://duventra-frontend.vercel.app"
-    ],
+    origin: ["https://duventra-frontend.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   }),
