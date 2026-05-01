@@ -175,7 +175,7 @@ export const getMembers = async (req, res) => {
     );
 
     const studentMembers = await Student.find({
-      userId: { $in: studentUserIds },
+      _id: { $in: studentUserIds },
     }).select("name userId collegeName course year profilePic");
 
     // 🔥 Dono ko tag karke combine karo
