@@ -6,10 +6,19 @@ import { getSocketId } from "../socket/socket.js";
 
 // Kisi bhi userId/societyId se user info fetch karo
 const getUserInfo = async (id) => {
-  let u = await Student.findOne({ userId: id }).select("userId name profilePic");
+  let u = await Student.findOne({ userId: id }).select(
+    "userId name profilePic",
+  );
   if (u) return { userId: u.userId, name: u.name, profilePic: u.profilePic };
-  u = await Society.findOne({ societyId: id }).select("societyId societyName profilePic");
-  if (u) return { userId: u.societyId, name: u.societyName, profilePic: u.profilePic };
+  u = await Society.findOne({ societyId: id }).select(
+    "societyId societyName profilePic",
+  );
+  if (u)
+    return {
+      userId: u.societyId,
+      name: u.societyName,
+      profilePic: u.profilePic,
+    };
   return null;
 };
 
@@ -19,10 +28,16 @@ export const sendMessage = async (req, res) => {
     const { senderId, receiverId, text } = req.body;
 
     if (!senderId || !receiverId || !text?.trim()) {
-      return res.status(400).json({ message: "senderId, receiverId aur text zaroori hai" });
+      return res
+        .status(400)
+        .json({ message: "senderId, receiverId and text are neccessary" });
     }
 
-    const msg = await Message.create({ senderId, receiverId, text: text.trim() });
+    const msg = await Message.create({
+      senderId,
+      receiverId,
+      text: text.trim(),
+    });
 
     // Real-time delivery
     try {
@@ -45,15 +60,15 @@ export const getConversation = async (req, res) => {
 
     const msgs = await Message.find({
       $or: [
-        { senderId: myId,    receiverId: otherId },
-        { senderId: otherId, receiverId: myId    },
+        { senderId: myId, receiverId: otherId },
+        { senderId: otherId, receiverId: myId },
       ],
     }).sort({ createdAt: 1 });
 
     // Mark received messages as read
     await Message.updateMany(
       { senderId: otherId, receiverId: myId, read: false },
-      { read: true }
+      { read: true },
     );
 
     return res.json(msgs);
@@ -92,10 +107,17 @@ export const getInbox = async (req, res) => {
     for (const [otherId, lastMsg] of map) {
       const info = await getUserInfo(otherId);
       if (!info) continue;
-      inbox.push({ user: info, lastMessage: lastMsg, unread: unreadMap[otherId] || 0 });
+      inbox.push({
+        user: info,
+        lastMessage: lastMsg,
+        unread: unreadMap[otherId] || 0,
+      });
     }
 
-    inbox.sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
+    inbox.sort(
+      (a, b) =>
+        new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt),
+    );
 
     return res.json(inbox);
   } catch (err) {
@@ -111,11 +133,13 @@ export const deleteMessage = async (req, res) => {
     const { userId } = req.body; // who is deleting
 
     const msg = await Message.findById(messageId);
-    if (!msg) return res.status(404).json({ message: "Message nahi mila" });
+    if (!msg) return res.status(404).json({ message: "Message not found" });
 
     // Only sender can delete
     if (msg.senderId !== userId) {
-      return res.status(403).json({ message: "Sirf apna message delete kar sakte ho" });
+      return res
+        .status(403)
+        .json({ message: "only delete own message" });
     }
 
     await Message.findByIdAndDelete(messageId);
@@ -124,10 +148,11 @@ export const deleteMessage = async (req, res) => {
     try {
       const io = getIO();
       const sid = getSocketId(msg.receiverId);
-      if (sid) io.to(sid).emit("message_deleted", { messageId, senderId: userId });
+      if (sid)
+        io.to(sid).emit("message_deleted", { messageId, senderId: userId });
     } catch (_) {}
 
-    return res.json({ message: "Message delete ho gaya", messageId });
+    return res.json({ message: "Message deleted", messageId });
   } catch (err) {
     console.error("deleteMessage error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -141,12 +166,12 @@ export const deleteConversation = async (req, res) => {
 
     await Message.deleteMany({
       $or: [
-        { senderId: myId,    receiverId: otherId },
-        { senderId: otherId, receiverId: myId    },
+        { senderId: myId, receiverId: otherId },
+        { senderId: otherId, receiverId: myId },
       ],
     });
 
-    return res.json({ message: "Conversation delete ho gayi" });
+    return res.json({ message: "Conversation deleted" });
   } catch (err) {
     console.error("deleteConversation error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -164,16 +189,30 @@ export const searchUsers = async (req, res) => {
     const students = await Student.find({
       userId: { $ne: excludeId },
       $or: [{ name: regex }, { email: regex }],
-    }).select("userId name profilePic email").limit(8);
+    })
+      .select("userId name profilePic email")
+      .limit(8);
 
     const societies = await Society.find({
       societyId: { $ne: excludeId },
       $or: [{ societyName: regex }, { email: regex }],
-    }).select("societyId societyName profilePic email").limit(4);
+    })
+      .select("societyId societyName profilePic email")
+      .limit(4);
 
     const results = [
-      ...students.map((s) => ({ userId: s.userId, name: s.name, profilePic: s.profilePic, email: s.email })),
-      ...societies.map((s) => ({ userId: s.societyId, name: s.societyName, profilePic: s.profilePic, email: s.email })),
+      ...students.map((s) => ({
+        userId: s.userId,
+        name: s.name,
+        profilePic: s.profilePic,
+        email: s.email,
+      })),
+      ...societies.map((s) => ({
+        userId: s.societyId,
+        name: s.societyName,
+        profilePic: s.profilePic,
+        email: s.email,
+      })),
     ];
 
     return res.json(results);
