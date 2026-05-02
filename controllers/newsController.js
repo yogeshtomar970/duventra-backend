@@ -89,13 +89,15 @@ export const getAllNews = async (req, res) => {
     const enriched = await Promise.all(
       newsList.map(async (item) => {
         let userName = "Unknown",
-          userImage = null;
+          userImage = null,
+          recipientId = null;
 
         if (item.uploadedBy === "student") {
           const student = await Student.findById(item.userId);
           if (student) {
             userName = student.name;
             userImage = student.profilePic || null;
+            recipientId = student.userId; // custom userId for /student-profile?id=
           }
         }
         if (item.uploadedBy === "society") {
@@ -103,6 +105,7 @@ export const getAllNews = async (req, res) => {
           if (society) {
             userName = society.societyName;
             userImage = society.profilePic || null;
+            recipientId = society.societyId; // custom societyId for /society-profile?id=
           }
         }
 
@@ -111,7 +114,7 @@ export const getAllNews = async (req, res) => {
           newsId: item._id,
         });
 
-        return { ...item._doc, userName, userImage, likeCount, commentCount };
+        return { ...item._doc, userName, userImage, recipientId, likeCount, commentCount };
       }),
     );
 
