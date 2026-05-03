@@ -30,7 +30,7 @@ export const loginUser = async (req, res) => {
     }
 
     // ✅ FIXED: Generate JWT token (was missing before)
-    const token = jwt.sign(
+    const token = jwt.sign( 
       { id: user._id, role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
