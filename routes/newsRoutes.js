@@ -1,6 +1,3 @@
-// ============================================================
-// newsRoutes.js — FIXED
-// ============================================================
 import express from "express";
 import { uploadNews } from "../middlewares/upload.js";
 import {
@@ -13,18 +10,21 @@ import {
   addNewsComment,
   getNewsComments,
 } from "../controllers/newsController.js";
-import { verifyToken } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.get("/all", getAllNews);                                                              // ✅ public
-router.get("/like/:newsId/:userId", getNewsLikes);                                          // ✅ public
-router.get("/comment/:newsId", getNewsComments);                                            // ✅ public
+// News CRUD
+router.post("/upload",          uploadNews.single("image"), uploadNewsController);
+router.get("/all",              getAllNews);
+router.delete("/:id",           deleteNews);
+router.put("/update/:id",       uploadNews.single("image"), updateNews);  // ✅ NEW
 
-router.post("/upload", verifyToken, uploadNews.single("image"), uploadNewsController);      // 🔒
-router.delete("/:id", verifyToken, deleteNews);                                             // 🔒
-router.put("/update/:id", verifyToken, uploadNews.single("image"), updateNews);             // 🔒
-router.post("/like/toggle", verifyToken, toggleNewsLike);                                   // 🔒
-router.post("/comment/add", verifyToken, addNewsComment);                                   // 🔒
+// Likes
+router.post("/like/toggle",           toggleNewsLike);
+router.get("/like/:newsId/:userId",   getNewsLikes);
+
+// Comments
+router.post("/comment/add",           addNewsComment);
+router.get("/comment/:newsId",        getNewsComments);
 
 export default router;

@@ -1,7 +1,6 @@
 import Student from "../models/Student.js";
 import Society from "../models/Society.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 
 export const loginUser = async (req, res) => {
   try {
@@ -11,10 +10,11 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    // Check Student first, then Society
+    // Check Student first
     let user = await Student.findOne({ email });
     let role = "student";
 
+    // Then check Society
     if (!user) {
       user = await Society.findOne({ email });
       role = "society";
@@ -29,23 +29,18 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    // ✅ FIXED: Generate JWT token (was missing before)
-    const token = jwt.sign( 
-      { id: user._id, role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token,   // ← Send token to client
       role,
       user: {
         id: user._id,
         email: user.email,
+        // name: for display in comments/likes
         name: role === "society" ? user.societyName : user.name,
+        // societyId exists only for societies
         societyId: user.societyId || null,
+        // userId exists only for students
         userId: user.userId || null,
         profilePic: user.profilePic || null,
       },

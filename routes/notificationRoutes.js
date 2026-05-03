@@ -1,6 +1,3 @@
-// ============================================================
-// notificationRoutes.js — FIXED
-// ============================================================
 import express from "express";
 import {
   getNotifications,
@@ -8,14 +5,13 @@ import {
   markAllRead,
   markOneRead,
 } from "../controllers/notificationController.js";
-import { verifyToken } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-// All notification routes require login (these are personal data)
-router.get("/unread/:recipientId",  verifyToken, getUnreadCount);
-router.put("/read-all",             verifyToken, markAllRead);
-router.put("/read/:id",             verifyToken, markOneRead);
-router.get("/:recipientId",         verifyToken, getNotifications);
+// ⚠️ IMPORTANT: specific routes BEFORE dynamic /:id routes
+router.get("/unread/:recipientId", getUnreadCount);   // must be before /:recipientId
+router.put("/read-all", markAllRead);
+router.put("/read/:id", markOneRead);
+router.get("/:recipientId", getNotifications);
 
 export default router;
