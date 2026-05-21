@@ -1,4 +1,5 @@
 import express from "express";
+import { protect } from "../middlewares/auth.js";
 import { uploadNews } from "../middlewares/upload.js";
 import {
   uploadNewsController,
@@ -14,17 +15,17 @@ import {
 const router = express.Router();
 
 // News CRUD
-router.post("/upload",          uploadNews.single("image"), uploadNewsController);
-router.get("/all",              getAllNews);
-router.delete("/:id",           deleteNews);
-router.put("/update/:id",       uploadNews.single("image"), updateNews);  // ✅ NEW
+router.post("/upload",protect, uploadNews.single("image"), uploadNewsController);
+router.get("/all", getAllNews);
+router.delete("/:id", protect, deleteNews);
+router.put("/update/:id",protect, uploadNews.single("image"), updateNews); // ✅ NEW
 
 // Likes
-router.post("/like/toggle",           toggleNewsLike);
-router.get("/like/:newsId/:userId",   getNewsLikes);
+router.post("/like/toggle", toggleNewsLike);
+router.get("/like/:newsId/:userId", getNewsLikes);
 
 // Comments
-router.post("/comment/add",           addNewsComment);
-router.get("/comment/:newsId",        getNewsComments);
+router.post("/comment/add", addNewsComment);
+router.get("/comment/:newsId", getNewsComments);
 
 export default router;
