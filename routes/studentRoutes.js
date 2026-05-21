@@ -14,6 +14,7 @@ import {
   checkStudentFollow,
 } from "../controllers/studentController.js";
 import { uploadIdCard, uploadProfilePic } from "../middlewares/upload.js";
+import { protect } from "../middlewares/auth.js";
 
 const router = express.Router();
 
@@ -24,11 +25,11 @@ router.get("/check-follow/:followerId/:studentId", checkStudentFollow);
 router.get("/suggestions/:studentId", getStudentSuggestions);
 router.get("/following/:studentId", getStudentFollowing);
 router.get("/members/:studentId", getStudentMembers);
-router.post("/follow", followStudent);
-router.post("/unfollow", unfollowStudent);
+router.post("/follow",protect, followStudent);
+router.post("/unfollow",protect, unfollowStudent);
 router.get("/search/by-name", searchStudentByName);
 
 router.get("/:id", getStudentByUserId);
-router.put("/update/:id", uploadProfilePic.single("profilePic"), updateStudentProfile);
+router.put("/update/:id",protect, uploadProfilePic.single("profilePic"), updateStudentProfile);
 
 export default router;
