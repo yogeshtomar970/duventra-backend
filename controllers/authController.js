@@ -1,6 +1,7 @@
 import Student from "../models/Student.js";
 import Society from "../models/Society.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const loginUser = async (req, res) => {
   try {
@@ -28,10 +29,15 @@ export const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
-
+    const token = jwt.sign(
+      { id: user._id, role },
+      process.env.JWT_SECRET,
+      { expiresin:"7d"}
+    )
     res.status(200).json({
       success: true,
       message: "Login successful",
+      token,
       role,
       user: {
         id: user._id,
