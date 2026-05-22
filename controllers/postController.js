@@ -151,7 +151,24 @@ export const updatePost = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+export const getPostById = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
 
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+
+    const society = await Society.findOne({ societyName: post.societyName });
+    const postWithProfile = { ...post._doc, profilePic: society?.profilePic || "" };
+
+    res.status(200).json({ success: true, post: postWithProfile });
+  } catch (error) {
+    console.log("Get Post By ID Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 // ✅ NEW: Post Delete API
 export const deletePost = async (req, res) => {
   try {
