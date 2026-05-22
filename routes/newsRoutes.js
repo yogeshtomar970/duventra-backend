@@ -9,7 +9,7 @@ import {
   toggleNewsLike,
   getNewsLikes,
   addNewsComment,
-  getNewsComments,
+  getNewsComments,  getUserNews,
 } from "../controllers/newsController.js";
 
 const router = express.Router();
@@ -27,5 +27,5 @@ router.get("/like/:newsId/:userId", getNewsLikes);
 // Comments
 router.post("/comment/add", addNewsComment);
 router.get("/comment/:newsId", getNewsComments);
-
+router.get("/user/:userId", getUserNews); 
 export default router;
