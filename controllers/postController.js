@@ -53,9 +53,18 @@ export const uploadPosts = async (req, res) => {
   }
 };
 
+
 export const getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 });
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip  = (page - 1) * limit;
+
+    const total = await Post.countDocuments();
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     const postsWithProfile = await Promise.all(
       posts.map(async (post) => {
@@ -64,13 +73,16 @@ export const getAllPosts = async (req, res) => {
       })
     );
 
-    res.status(200).json({ success: true, posts: postsWithProfile });
+    res.status(200).json({
+      success: true,
+      posts: postsWithProfile,
+      hasMore: page * limit < total,   // ← frontend ko batata h aur posts hain ya nahi
+    });
   } catch (error) {
     console.log("Fetch Post Error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 export const increaseViews = async (req, res) => {
   try {
     const { postId } = req.params;
