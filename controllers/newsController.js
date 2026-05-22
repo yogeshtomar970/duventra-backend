@@ -84,7 +84,15 @@ export const uploadNewsController = async (req, res) => {
 // GET /api/news/all
 export const getAllNews = async (req, res) => {
   try {
-    const newsList = await News.find().sort({ createdAt: -1 });
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip  = (page - 1) * limit;
+
+    const total    = await News.countDocuments();
+    const newsList = await News.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     const enriched = await Promise.all(
       newsList.map(async (item) => {
@@ -97,7 +105,7 @@ export const getAllNews = async (req, res) => {
           if (student) {
             userName = student.name;
             userImage = student.profilePic || null;
-            recipientId = student.userId; // custom userId for /student-profile?id=
+            recipientId = student.userId;
           }
         }
         if (item.uploadedBy === "society") {
@@ -105,20 +113,21 @@ export const getAllNews = async (req, res) => {
           if (society) {
             userName = society.societyName;
             userImage = society.profilePic || null;
-            recipientId = society.societyId; // custom societyId for /society-profile?id=
+            recipientId = society.societyId;
           }
         }
 
         const likeCount = await NewsLike.countDocuments({ newsId: item._id });
-        const commentCount = await NewsComment.countDocuments({
-          newsId: item._id,
-        });
+        const commentCount = await NewsComment.countDocuments({ newsId: item._id });
 
         return { ...item._doc, userName, userImage, recipientId, likeCount, commentCount };
       }),
     );
 
-    res.status(200).json(enriched);
+    res.status(200).json({
+      news: enriched,
+      hasMore: page * limit < total,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch news" });
