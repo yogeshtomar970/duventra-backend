@@ -310,7 +310,7 @@ export const getNewsLikes = async (req, res) => {
 export const addNewsComment = async (req, res) => {
   try {
     // ✅ Naya — userName destructure karo aur save karo
-    const { newsId, userId, text, userName } = req.body; // ← userName add
+    const { newsId, userId, text, name } = req.body; // ← userName add
     if (!newsId || !userId || !text?.trim())
       return res
         .status(400)
@@ -320,7 +320,7 @@ export const addNewsComment = async (req, res) => {
       newsId,
       userId,
       text: text.trim(),
-      userName: userName || "User",
+      userName: name || "User",
     }); // ← userName save
 
     // enriched comments return karo profilePic ke saath
@@ -332,7 +332,7 @@ export const addNewsComment = async (req, res) => {
         const actor = await getActorInfo(c.userId);
         return {
           ...c._doc,
-          userName: c.userName || actor.name,
+          userName: c.name || actor.name,
           profilePic: actor.profilePic || "",
         };
       }),
