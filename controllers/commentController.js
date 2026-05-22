@@ -55,7 +55,17 @@ export const addComment = async (req, res) => {
       text: text.trim(),
     });
 
-    const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
+    // profilePic enrich karo har comment pe
+    const rawComments = await Comment.find({ postId }).sort({ createdAt: -1 });
+    const comments = await Promise.all(
+      rawComments.map(async (c) => {
+        const actor = await getActorInfo(c.userId);
+        return {
+          ...c.toObject(),
+          profilePic: actor.profilePic || "",
+        };
+      })
+    );
 
     // 🔔 Send notification to post owner (only if commenter ≠ owner)
     try {
@@ -94,11 +104,24 @@ export const addComment = async (req, res) => {
   }
 };
 
-// GET /api/comment/:postId
+
+
 export const getComments = async (req, res) => {
   try {
     const { postId } = req.params;
-    const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
+    const rawComments = await Comment.find({ postId }).sort({ createdAt: -1 });
+
+    // profilePic attach karo har comment pe
+    const comments = await Promise.all(
+      rawComments.map(async (c) => {
+        const actor = await getActorInfo(c.userId);
+        return {
+          ...c.toObject(),
+          profilePic: actor.profilePic || "",
+        };
+      })
+    );
+
     res.json({ success: true, comments, count: comments.length });
   } catch (err) {
     console.error("getComments error:", err.message);
