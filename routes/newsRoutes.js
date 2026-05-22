@@ -10,6 +10,7 @@ import {
   getNewsLikes,
   addNewsComment,
   getNewsComments,  getUserNews,
+  getNewsById,
 } from "../controllers/newsController.js";
 
 const router = express.Router();
@@ -19,7 +20,7 @@ router.post("/upload",protect, uploadNews.single("image"), uploadNewsController)
 router.get("/all", getAllNews);
 router.delete("/:id", protect, deleteNews);
 router.put("/update/:id",protect, uploadNews.single("image"), updateNews); // ✅ NEW
-
+router.get("/single/:id", getNewsById);
 // Likes
 router.post("/like/toggle", toggleNewsLike);
 router.get("/like/:newsId/:userId", getNewsLikes);

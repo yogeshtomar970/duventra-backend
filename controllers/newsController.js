@@ -142,7 +142,33 @@ export const getAllNews = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch news" });
   }
 };
+export const getNewsById = async (req, res) => {
+  try {
+    const item = await News.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: "News not found" });
 
+    let userName = "Unknown", userImage = null, recipientId = null;
+
+    if (item.uploadedBy === "student") {
+      const student = await Student.findById(item.userId);
+      if (student) { userName = student.name; userImage = student.profilePic || null; recipientId = student.userId; }
+    }
+    if (item.uploadedBy === "society") {
+      const society = await Society.findById(item.userId);
+      if (society) { userName = society.societyName; userImage = society.profilePic || null; recipientId = society.societyId; }
+    }
+
+    const likeCount    = await NewsLike.countDocuments({ newsId: item._id });
+    const commentCount = await NewsComment.countDocuments({ newsId: item._id });
+
+    res.status(200).json({
+      success: true,
+      news: { ...item._doc, userName, userImage, recipientId, likeCount, commentCount },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch news" });
+  }
+};
 // DELETE /api/news/:id  — body: { userId }
 export const deleteNews = async (req, res) => {
   try {
