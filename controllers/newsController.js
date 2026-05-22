@@ -356,12 +356,24 @@ export const addNewsComment = async (req, res) => {
 };
 
 // GET /api/news/comment/:newsId
+// ✅ Naya — har comment ke saath profilePic bhi fetch karo
 export const getNewsComments = async (req, res) => {
   try {
-    const comments = await NewsComment.find({ newsId: req.params.newsId }).sort(
-      { createdAt: -1 },
+    const comments = await NewsComment.find({ newsId: req.params.newsId })
+      .sort({ createdAt: -1 });
+
+    const enriched = await Promise.all(
+      comments.map(async (c) => {
+        const actor = await getActorInfo(c.userId);
+        return {
+          ...c._doc,
+          userName: c.userName || actor.name,
+          profilePic: actor.profilePic || "",
+        };
+      })
     );
-    res.json({ success: true, comments, count: comments.length });
+
+    res.json({ success: true, comments: enriched, count: enriched.length });
   } catch (error) {
     res.status(500).json({ success: false });
   }
