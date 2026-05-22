@@ -84,11 +84,11 @@ export const uploadNewsController = async (req, res) => {
 // GET /api/news/all
 export const getAllNews = async (req, res) => {
   try {
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-    const total    = await News.countDocuments();
+    const total = await News.countDocuments();
     const newsList = await News.find()
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -118,9 +118,18 @@ export const getAllNews = async (req, res) => {
         }
 
         const likeCount = await NewsLike.countDocuments({ newsId: item._id });
-        const commentCount = await NewsComment.countDocuments({ newsId: item._id });
+        const commentCount = await NewsComment.countDocuments({
+          newsId: item._id,
+        });
 
-        return { ...item._doc, userName, userImage, recipientId, likeCount, commentCount };
+        return {
+          ...item._doc,
+          userName,
+          userImage,
+          recipientId,
+          likeCount,
+          commentCount,
+        };
       }),
     );
 
@@ -146,12 +155,10 @@ export const deleteNews = async (req, res) => {
 
     // Ownership check
     if (news.userId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Unauthorized: Yeh news aapki nahi hai",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Yeh news aapki nahi hai",
+      });
     }
 
     // Cloudinary se image delete karo
@@ -192,12 +199,10 @@ export const updateNews = async (req, res) => {
         .json({ success: false, message: "News not found" });
 
     if (news.userId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Unauthorized: Yeh news aapki nahi hai",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Yeh news aapki nahi hai",
+      });
     }
 
     if (description !== undefined) news.description = description;
@@ -304,14 +309,34 @@ export const getNewsLikes = async (req, res) => {
 // POST /api/news/comment/add
 export const addNewsComment = async (req, res) => {
   try {
-    const { newsId, userId, text } = req.body;
+    // ✅ Naya — userName destructure karo aur save karo
+    const { newsId, userId, text, userName } = req.body; // ← userName add
     if (!newsId || !userId || !text?.trim())
       return res
         .status(400)
         .json({ success: false, message: "newsId, userId, text required" });
 
-    await NewsComment.create({ newsId, userId, text: text.trim() });
-    const comments = await NewsComment.find({ newsId }).sort({ createdAt: -1 });
+    await NewsComment.create({
+      newsId,
+      userId,
+      text: text.trim(),
+      userName: userName || "User",
+    }); // ← userName save
+
+    // enriched comments return karo profilePic ke saath
+    const rawComments = await NewsComment.find({ newsId }).sort({
+      createdAt: -1,
+    });
+    const comments = await Promise.all(
+      rawComments.map(async (c) => {
+        const actor = await getActorInfo(c.userId);
+        return {
+          ...c._doc,
+          userName: c.userName || actor.name,
+          profilePic: actor.profilePic || "",
+        };
+      }),
+    );
 
     // 🔔 Notification to news owner (only if commenter ≠ owner)
     try {
@@ -359,8 +384,9 @@ export const addNewsComment = async (req, res) => {
 // ✅ Naya — har comment ke saath profilePic bhi fetch karo
 export const getNewsComments = async (req, res) => {
   try {
-    const comments = await NewsComment.find({ newsId: req.params.newsId })
-      .sort({ createdAt: -1 });
+    const comments = await NewsComment.find({ newsId: req.params.newsId }).sort(
+      { createdAt: -1 },
+    );
 
     const enriched = await Promise.all(
       comments.map(async (c) => {
@@ -370,7 +396,7 @@ export const getNewsComments = async (req, res) => {
           userName: c.userName || actor.name,
           profilePic: actor.profilePic || "",
         };
-      })
+      }),
     );
 
     res.json({ success: true, comments: enriched, count: enriched.length });
@@ -386,7 +412,9 @@ export const getUserNews = async (req, res) => {
 
     const enriched = await Promise.all(
       newsList.map(async (item) => {
-        let userName = "Unknown", userImage = null, recipientId = null;
+        let userName = "Unknown",
+          userImage = null,
+          recipientId = null;
 
         if (item.uploadedBy === "student") {
           const student = await Student.findById(item.userId);
@@ -405,11 +433,20 @@ export const getUserNews = async (req, res) => {
           }
         }
 
-        const likeCount    = await NewsLike.countDocuments({ newsId: item._id });
-        const commentCount = await NewsComment.countDocuments({ newsId: item._id });
+        const likeCount = await NewsLike.countDocuments({ newsId: item._id });
+        const commentCount = await NewsComment.countDocuments({
+          newsId: item._id,
+        });
 
-        return { ...item._doc, userName, userImage, recipientId, likeCount, commentCount };
-      })
+        return {
+          ...item._doc,
+          userName,
+          userImage,
+          recipientId,
+          likeCount,
+          commentCount,
+        };
+      }),
     );
 
     res.status(200).json({ success: true, news: enriched });
