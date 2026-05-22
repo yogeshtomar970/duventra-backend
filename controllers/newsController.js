@@ -366,3 +366,43 @@ export const getNewsComments = async (req, res) => {
     res.status(500).json({ success: false });
   }
 };
+// GET /api/news/user/:userId  — profile ke liye sirf us user ki news
+export const getUserNews = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const newsList = await News.find({ userId }).sort({ createdAt: -1 });
+
+    const enriched = await Promise.all(
+      newsList.map(async (item) => {
+        let userName = "Unknown", userImage = null, recipientId = null;
+
+        if (item.uploadedBy === "student") {
+          const student = await Student.findById(item.userId);
+          if (student) {
+            userName = student.name;
+            userImage = student.profilePic || null;
+            recipientId = student.userId;
+          }
+        }
+        if (item.uploadedBy === "society") {
+          const society = await Society.findById(item.userId);
+          if (society) {
+            userName = society.societyName;
+            userImage = society.profilePic || null;
+            recipientId = society.societyId;
+          }
+        }
+
+        const likeCount    = await NewsLike.countDocuments({ newsId: item._id });
+        const commentCount = await NewsComment.countDocuments({ newsId: item._id });
+
+        return { ...item._doc, userName, userImage, recipientId, likeCount, commentCount };
+      })
+    );
+
+    res.status(200).json({ success: true, news: enriched });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch user news" });
+  }
+};
