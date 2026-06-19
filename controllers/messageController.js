@@ -132,27 +132,39 @@ export const getInbox = async (req, res) => {
 export const deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
-    const { userId } = req.body; // who is deleting
+    const { userId } = req.body;
 
     const msg = await Message.findById(messageId);
     if (!msg) return res.status(404).json({ message: "Message not found" });
 
-    // Only sender can delete
-    if (msg.senderId !== userId) {
-      return res
-        .status(403)
-        .json({ message: "only delete own message" });
+    // Sender ya receiver — dono apni side se delete kar sakte hain
+    const isSender   = msg.senderId   === userId;
+    const isReceiver = msg.receiverId === userId;
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
-    await Message.findByIdAndDelete(messageId);
+    // Already deleted check
+    if (msg.deletedFor.includes(userId)) {
+      return res.json({ message: "Already deleted", messageId });
+    }
 
-    // Notify receiver via socket
-    try {
-      const io = getIO();
-      const sid = getSocketId(msg.receiverId);
-      if (sid)
-        io.to(sid).emit("message_deleted", { messageId, senderId: userId });
-    } catch (_) {}
+    msg.deletedFor.push(userId);
+    await msg.save();
+
+    // Dono ne delete kiya → DB se permanently hata do
+    if (msg.deletedFor.includes(msg.senderId) && msg.deletedFor.includes(msg.receiverId)) {
+      await Message.findByIdAndDelete(messageId);
+    }
+
+    // Sirf sender delete kare toh receiver ko socket event bhejo
+    if (isSender) {
+      try {
+        const io = getIO();
+        const sid = getSocketId(msg.receiverId);
+        if (sid) io.to(sid).emit("message_deleted", { messageId, senderId: userId });
+      } catch (_) {}
+    }
 
     return res.json({ message: "Message deleted", messageId });
   } catch (err) {
