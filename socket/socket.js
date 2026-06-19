@@ -25,6 +25,12 @@ export const initSocket = (io) => {
       if (sid) io.to(sid).emit("stop_typing", { fromUserId: userId });
     });
 
+    // Read receipts — sender ko batao ke messages padh liye
+    socket.on("messages_read", ({ readerId, senderId }) => {
+      const sid = getSocketId(senderId);
+      if (sid) io.to(sid).emit("messages_read", { readerId, senderId });
+    });
+
     socket.on("disconnect", () => {
       if (userId) {
         onlineUsers.delete(userId);
