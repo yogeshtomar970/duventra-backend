@@ -8,7 +8,7 @@ dotenv.config();
 // ✅ FIX: Cloudinary v2 config using individual env vars (not cloudinary:// URL)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
@@ -26,9 +26,13 @@ const createCloudinaryStorage = (folderName) => {
 };
 
 // Separate uploaders for each type
-export const uploadIdCard     = multer({ storage: createCloudinaryStorage("idcards")     });
-export const uploadPost       = multer({ storage: createCloudinaryStorage("posts")       });
-export const uploadNews       = multer({ storage: createCloudinaryStorage("news")        });
-export const uploadProfilePic = multer({ storage: createCloudinaryStorage("profilePics") });
+export const uploadIdCard = multer({
+  storage: createCloudinaryStorage("idcards"),
+});
+export const uploadPost = multer({ storage: createCloudinaryStorage("posts") });
+export const uploadNews = multer({ storage: createCloudinaryStorage("news") });
+export const uploadProfilePic = multer({
+  storage: createCloudinaryStorage("profilePics"),
+});
 
 export default cloudinary;

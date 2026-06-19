@@ -53,12 +53,11 @@ export const uploadPosts = async (req, res) => {
   }
 };
 
-
 export const getAllPosts = async (req, res) => {
   try {
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const total = await Post.countDocuments();
     const posts = await Post.find()
@@ -68,15 +67,17 @@ export const getAllPosts = async (req, res) => {
 
     const postsWithProfile = await Promise.all(
       posts.map(async (post) => {
-        const society = await Society.findOne({ societyName: post.societyName });
+        const society = await Society.findOne({
+          societyName: post.societyName,
+        });
         return { ...post._doc, profilePic: society?.profilePic || "" };
-      })
+      }),
     );
 
     res.status(200).json({
       success: true,
       posts: postsWithProfile,
-      hasMore: page * limit < total,   // ← frontend ko batata h aur posts hain ya nahi
+      hasMore: page * limit < total, // ← frontend ko batata h aur posts hain ya nahi
     });
   } catch (error) {
     console.log("Fetch Post Error:", error);
@@ -98,12 +99,18 @@ export const increaseViews = async (req, res) => {
 
     const post = await Post.findById(postId);
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found" });
     }
 
     // Agar pehle se dekha hua hai to count mat badhao
     if (post.viewedBy.includes(viewerKey)) {
-      return res.json({ success: true, views: post.views, alreadyViewed: true });
+      return res.json({
+        success: true,
+        views: post.views,
+        alreadyViewed: true,
+      });
     }
 
     // Naya viewer — count badhao aur record karo
@@ -126,7 +133,9 @@ export const updatePost = async (req, res) => {
     const post = await Post.findById(postId);
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found" });
     }
 
     if (post.societyId !== societyId) {
@@ -157,11 +166,16 @@ export const getPostById = async (req, res) => {
     const post = await Post.findById(postId);
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found" });
     }
 
     const society = await Society.findOne({ societyName: post.societyName });
-    const postWithProfile = { ...post._doc, profilePic: society?.profilePic || "" };
+    const postWithProfile = {
+      ...post._doc,
+      profilePic: society?.profilePic || "",
+    };
 
     res.status(200).json({ success: true, post: postWithProfile });
   } catch (error) {
@@ -178,7 +192,9 @@ export const deletePost = async (req, res) => {
     const post = await Post.findById(postId);
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found" });
     }
 
     if (post.societyId !== societyId) {
@@ -194,7 +210,10 @@ export const deletePost = async (req, res) => {
         const urlParts = post.image.split("/");
         const folderIndex = urlParts.indexOf("duventra");
         if (folderIndex !== -1) {
-          const publicId = urlParts.slice(folderIndex).join("/").replace(/\.[^/.]+$/, "");
+          const publicId = urlParts
+            .slice(folderIndex)
+            .join("/")
+            .replace(/\.[^/.]+$/, "");
           await cloudinary.uploader.destroy(publicId);
         }
       } catch (cloudErr) {
@@ -204,7 +223,9 @@ export const deletePost = async (req, res) => {
 
     await Post.findByIdAndDelete(postId);
 
-    res.status(200).json({ success: true, message: "Post deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Post deleted successfully" });
   } catch (error) {
     console.log("Delete Post Error:", error);
     res.status(500).json({ success: false, message: "Server error" });

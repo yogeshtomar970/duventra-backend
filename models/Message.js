@@ -6,6 +6,7 @@ const messageSchema = new mongoose.Schema(
     receiverId: { type: String, required: true },  // userId / societyId
     text:       { type: String, required: true },
     read:       { type: Boolean, default: false },
+     deletedFor: { type: [String], default: [] },
   },
   { timestamps: true }
 );
