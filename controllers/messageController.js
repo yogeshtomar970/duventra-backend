@@ -63,6 +63,7 @@ export const getConversation = async (req, res) => {
         { senderId: myId, receiverId: otherId },
         { senderId: otherId, receiverId: myId },
       ],
+      deletedFor: { $ne: myId }, // myId ke liye deleted messages mat dikhao
     }).sort({ createdAt: 1 });
 
     // Mark received messages as read
@@ -85,6 +86,7 @@ export const getInbox = async (req, res) => {
 
     const all = await Message.find({
       $or: [{ senderId: myId }, { receiverId: myId }],
+      deletedFor: { $ne: myId }, // myId ke liye deleted messages inbox mein mat dikhao
     }).sort({ createdAt: -1 });
 
     // Latest message per other person
@@ -164,11 +166,30 @@ export const deleteConversation = async (req, res) => {
   try {
     const { myId, otherId } = req.params;
 
+    // Sirf myId ke liye hide karo — dusre ka conversation intact rahega
+    await Message.updateMany(
+      {
+        $or: [
+          { senderId: myId, receiverId: otherId },
+          { senderId: otherId, receiverId: myId },
+        ],
+        deletedFor: { $ne: myId }, // already deleted nahi ho
+      },
+      { $push: { deletedFor: myId } }
+    );
+
+    // Cleanup: agar dono ne delete kar diya toh DB se permanently hata do
     await Message.deleteMany({
       $or: [
         { senderId: myId, receiverId: otherId },
         { senderId: otherId, receiverId: myId },
       ],
+      $expr: {
+        $and: [
+          { $in: [myId,    "$deletedFor"] },
+          { $in: [otherId, "$deletedFor"] },
+        ],
+      },
     });
 
     return res.json({ message: "Conversation deleted" });
