@@ -65,14 +65,21 @@ export const getAllPosts = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    const postsWithProfile = await Promise.all(
-      posts.map(async (post) => {
-        const society = await Society.findOne({
-          societyName: post.societyName,
-        });
-        return { ...post._doc, profilePic: society?.profilePic || "" };
-      }),
-    );
+    // Sabhi societyIds ek saath nikalo, ek hi query mein profilePic fetch karo
+    const societyIds = [...new Set(posts.map((p) => p.societyId))];
+    const societies = await Society.find({
+      societyId: { $in: societyIds },
+    }).select("societyId profilePic");
+
+    const profilePicMap = {};
+    societies.forEach((s) => {
+      profilePicMap[s.societyId] = s.profilePic || "";
+    });
+
+    const postsWithProfile = posts.map((post) => ({
+      ...post._doc,
+      profilePic: profilePicMap[post.societyId] || "",
+    }));
 
     res.status(200).json({
       success: true,
@@ -171,7 +178,7 @@ export const getPostById = async (req, res) => {
         .json({ success: false, message: "Post not found" });
     }
 
-    const society = await Society.findOne({ societyName: post.societyName });
+    const society = await Society.findOne({ societyId: post.societyId });
     const postWithProfile = {
       ...post._doc,
       profilePic: society?.profilePic || "",
