@@ -39,6 +39,11 @@ const societySchema = new mongoose.Schema(
       default: "",
     },
 
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
+
     committee: [
       {
         studentId: {
