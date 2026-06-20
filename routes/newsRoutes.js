@@ -22,11 +22,11 @@ router.delete("/:id", protect, deleteNews);
 router.put("/update/:id",protect, uploadNews.single("image"), updateNews); // ✅ NEW
 router.get("/single/:id", getNewsById);
 // Likes
-router.post("/like/toggle", toggleNewsLike);
+router.post("/like/toggle",protect, toggleNewsLike);
 router.get("/like/:newsId/:userId", getNewsLikes);
 
 // Comments
-router.post("/comment/add", addNewsComment);
+router.post("/comment/add",protect, addNewsComment);
 router.get("/comment/:newsId", getNewsComments);
 router.get("/user/:userId", getUserNews); 
 export default router;
