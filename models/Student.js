@@ -15,6 +15,10 @@ const studentSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );
