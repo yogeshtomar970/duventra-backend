@@ -5,12 +5,18 @@ import nodemailer from "nodemailer";
 // .env mein chahiye: GMAIL_USER, GMAIL_APP_PASSWORD
 // GMAIL_APP_PASSWORD ek normal Gmail password NAHI hota — Google Account →
 // Security → 2-Step Verification → App Passwords se generate karna padta hai.
+//
+// NOTE: Render (aur kai cloud hosts) pe `service: "gmail"` shortcut (port 465/SSL)
+// connection timeout deta hai. Explicit host + port 587 (STARTTLS) zyada reliable hai.
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // port 587 ke liye false — STARTTLS khud upgrade karta hai
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
+  connectionTimeout: 15000, // 15 sec — Render ka network thoda slow ho sakta hai
 });
 
 export const sendOtpEmail = async (toEmail, otp) => {
