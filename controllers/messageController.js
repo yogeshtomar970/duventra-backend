@@ -7,17 +7,18 @@ import { getSocketId } from "../socket/socket.js";
 // Kisi bhi userId/societyId se user info fetch karo
 const getUserInfo = async (id) => {
   let u = await Student.findOne({ userId: id }).select(
-    "userId name profilePic",
+    "userId name profilePic lastSeen",
   );
-  if (u) return { userId: u.userId, name: u.name, profilePic: u.profilePic };
+  if (u) return { userId: u.userId, name: u.name, profilePic: u.profilePic, lastSeen: u.lastSeen };
   u = await Society.findOne({ societyId: id }).select(
-    "societyId societyName profilePic",
+    "societyId societyName profilePic lastSeen",
   );
   if (u)
     return {
       userId: u.societyId,
       name: u.societyName,
       profilePic: u.profilePic,
+      lastSeen: u.lastSeen,
     };
   return null;
 };
