@@ -73,13 +73,13 @@ export const checkEmail = async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required" });
 
-    
+
     const { user } = await findUserByEmail(email);
     if (!user) {
-      return res.status(404).json({ message: "Yeh email registered nahi hai" });
+      return res.status(404).json({ message: "email is not registered" });
     }
 
-    res.status(200).json({ success: true, message: "Email mil gaya" });
+    res.status(200).json({ success: true, message: "Email found" });
   } catch (error) {
     console.error("checkEmail error:", error.message);
     res.status(500).json({ message: "Server error, try again later" });
@@ -98,7 +98,7 @@ export const resetPassword = async (req, res) => {
     if (newPassword.length < 6) {
       return res
         .status(400)
-        .json({ message: "Password kam se kam 6 characters ka hona chahiye" });
+        .json({ message: "Password must be at least 6 characters long" });
     }
 
     const { user } = await findUserByEmail(email);
@@ -109,7 +109,7 @@ export const resetPassword = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Password reset ho gaya, ab login karein",
+      message: "Password reset successful; please log in now.",
     });
   } catch (error) {
     console.error("resetPassword error:", error.message);
