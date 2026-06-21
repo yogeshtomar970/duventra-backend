@@ -63,13 +63,14 @@ export const getAllPosts = async (req, res) => {
     const posts = await Post.find()
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // ← plain JS objects, mongoose document overhead nahi — fast
 
     // Sabhi societyIds ek saath nikalo, ek hi query mein profilePic fetch karo
     const societyIds = [...new Set(posts.map((p) => p.societyId))];
     const societies = await Society.find({
       societyId: { $in: societyIds },
-    }).select("societyId profilePic");
+    }).select("societyId profilePic").lean();
 
     const profilePicMap = {};
     societies.forEach((s) => {
@@ -77,7 +78,7 @@ export const getAllPosts = async (req, res) => {
     });
 
     const postsWithProfile = posts.map((post) => ({
-      ...post._doc,
+      ...post,
       profilePic: profilePicMap[post.societyId] || "",
     }));
 
@@ -178,7 +179,7 @@ export const getPostById = async (req, res) => {
         .json({ success: false, message: "Post not found" });
     }
 
-    const society = await Society.findOne({ societyId: post.societyId });
+    const society = await Society.findOne({ societyName: post.societyName });
     const postWithProfile = {
       ...post._doc,
       profilePic: society?.profilePic || "",
