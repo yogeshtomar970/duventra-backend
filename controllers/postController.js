@@ -4,7 +4,8 @@ import { v2 as cloudinary } from "cloudinary";
 
 export const uploadPosts = async (req, res) => {
   try {
-    const { description, formLink, societyId, eventTypes } = req.body;
+    const { description, formLink, societyId, eventTypes, startDate, lastDate } =
+      req.body;
 
     if (!req.file) {
       return res.status(400).json({
@@ -27,6 +28,14 @@ export const uploadPosts = async (req, res) => {
       parsedEventTypes = JSON.parse(eventTypes);
     }
 
+    // lastDate aane ke baad start se pehle ka na ho, yeh sanity check
+    if (startDate && lastDate && new Date(lastDate) < new Date(startDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Last date, start date se pehle nahi ho sakti",
+      });
+    }
+
     const imageUrl = req.file.path;
 
     const newPost = new Post({
@@ -38,6 +47,8 @@ export const uploadPosts = async (req, res) => {
       societyType: society.societyType,
       collegeName: society.collegeName,
       societyId: society.societyId,
+      startDate: startDate || null,
+      lastDate: lastDate || null,
     });
 
     await newPost.save();
@@ -58,9 +69,15 @@ export const getAllPosts = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const upcomingOnly = req.query.upcoming === "true";
 
-    const total = await Post.countDocuments();
-    const posts = await Post.find()
+    // Sirf woh posts jinki lastDate abhi tak nahi aayi (ya lastDate set hi nahi)
+    const query = upcomingOnly
+      ? { lastDate: { $gte: new Date() } }
+      : {};
+
+    const total = await Post.countDocuments(query);
+    const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
