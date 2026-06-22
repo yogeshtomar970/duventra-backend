@@ -19,6 +19,14 @@ const postSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    startDate: {
+      type: Date,
+      default: null,
+    },
+    lastDate: {
+      type: Date,
+      default: null, // event kab tak chalega — isi se "Upcoming" decide hota hai
+    },
     societyId: {
       type: String,
       required: true,
