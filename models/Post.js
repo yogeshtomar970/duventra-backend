@@ -59,4 +59,9 @@ const postSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// Fast sort on feed query
+postSchema.index({ createdAt: -1 });
+// Upcoming filter
+postSchema.index({ lastDate: 1 });
+
 export default mongoose.model("Post", postSchema);
