@@ -169,7 +169,7 @@ export const updatePost = async (req, res) => {
     if (post.societyId !== societyId) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized: Yeh post aapki nahi hai",
+        message: "Unauthorized:This post is not yours.",
       });
     }
 
@@ -228,7 +228,7 @@ export const deletePost = async (req, res) => {
     if (post.societyId !== societyId) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized: Yeh post aapki nahi hai",
+        message: "Unauthorized: This post is not yours.",
       });
     }
 
