@@ -76,12 +76,15 @@ export const getAllPosts = async (req, res) => {
       ? { lastDate: { $gte: new Date() } }
       : {};
 
-    const total = await Post.countDocuments(query);
-    const posts = await Post.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(); // ← plain JS objects, mongoose document overhead nahi — fast
+    const [total, posts] = await Promise.all([
+      Post.countDocuments(query),
+      Post.find(query)
+        .select("-viewedBy") // ← viewedBy array exclude — biggest perf win
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
 
     // Sabhi societyIds ek saath nikalo, ek hi query mein profilePic fetch karo
     const societyIds = [...new Set(posts.map((p) => p.societyId))];
