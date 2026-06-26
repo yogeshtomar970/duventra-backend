@@ -214,9 +214,13 @@ export const unfollowStudent = async (req, res) => {
 export const getStudentFollowing = async (req, res) => {
   try {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
+    const mongoose = (await import("mongoose")).default;
     const { studentId } = req.params;
     const follows = await StudentFollow.find({ followedBy: studentId });
-    const targetIds = follows.map(f => f.followedTo);
+    const targetIds = follows
+      .map(f => f.followedTo)
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
     const students = await Student.find({ _id: { $in: targetIds } })
       .select("name userId collegeName course year profilePic _id");
     res.json({ success: true, data: students });
@@ -310,8 +314,12 @@ export const getStudentPublicProfile = async (req, res) => {
 export const checkStudentFollow = async (req, res) => {
   try {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
+    const mongoose = (await import("mongoose")).default;
     const { followerId, studentId } = req.params;
-    const exists = await StudentFollow.findOne({ followedBy: followerId, followedTo: studentId });
+    const followedTo = mongoose.Types.ObjectId.isValid(studentId)
+      ? new mongoose.Types.ObjectId(studentId)
+      : studentId;
+    const exists = await StudentFollow.findOne({ followedBy: followerId, followedTo });
     res.json({ followed: !!exists });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
