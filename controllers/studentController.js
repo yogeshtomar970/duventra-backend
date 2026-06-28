@@ -117,20 +117,15 @@ export const searchStudentByName = async (req, res) => {
 export const getStudentSuggestions = async (req, res) => {
   try {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
-    const mongoose = (await import("mongoose")).default;
-    const { studentId } = req.params; // student _id OR society societyId
+    const { studentId } = req.params; // can be student _id OR society societyId
 
     // Already followed students
     const follows = await StudentFollow.find({ followedBy: studentId });
-
-    // Only cast valid ObjectIds — societyId strings ko $nin mein mat daalo
-    const followedObjectIds = follows
-      .map(f => f.followedTo)
-      .filter(id => mongoose.Types.ObjectId.isValid(id))
-      .map(id => new mongoose.Types.ObjectId(id));
+    const followedIds = follows.map(f => f.followedTo);
+    followedIds.push(studentId); // exclude self (in case studentId is a student _id)
 
     const suggestions = await Student.find({
-      _id: { $nin: followedObjectIds },
+      _id: { $nin: followedIds },
     }).select("name userId collegeName course year profilePic _id").limit(20);
 
     res.status(200).json({ success: true, data: suggestions });
@@ -221,7 +216,12 @@ export const getStudentFollowing = async (req, res) => {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
     const mongoose = (await import("mongoose")).default;
     const { studentId } = req.params;
-    const follows = await StudentFollow.find({ followedBy: studentId });
+
+    // followedBy mein dono forms ho sakti hain:
+    // plain MongoDB _id ya "student_" + _id (jab student ne khud follow kiya)
+    const queryIds = [studentId, `student_${studentId}`];
+    const follows = await StudentFollow.find({ followedBy: { $in: queryIds } });
+
     const targetIds = follows
       .map(f => f.followedTo)
       .filter(id => mongoose.Types.ObjectId.isValid(id))
