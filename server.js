@@ -63,7 +63,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "https://duventra-frontend.vercel.app"
+      "https://duventra.vercel.app"
     ],
     methods: ["GET", "POST"],
   },
