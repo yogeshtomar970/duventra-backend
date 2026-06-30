@@ -1,9 +1,11 @@
 import Student from "../models/Student.js";
 import Society from "../models/Society.js";
+
 import bcrypt from "bcryptjs";
 import Notification from "../models/Notification.js";
 import { getIO } from "../socket/ioInstance.js";
 import { sendNotification } from "../socket/socket.js";
+import validstudent from "../models/validstudent.js";
 
 export const studentSignup = async (req, res) => {
   try {
@@ -30,9 +32,44 @@ export const studentSignup = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
+    // ── Validate against official college records (validstudents collection) ──
+    // Saari fields (name + rollNo + course + collegeName) exactly match honi
+    // chahiye — case-insensitive aur extra spaces ignore karke, taaki
+    // "John Doe" aur "john  doe" jaise minor typos block na karein.
+    const normalize = (str) => (str || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+    const allValidEntries = await validstudent.find({
+      rollNo: { $regex: `^${rollNo?.trim()}$`, $options: "i" },
+    });
+
+    const isValid = allValidEntries.some(
+      (v) =>
+        normalize(v.name) === normalize(name) &&
+        normalize(v.course) === normalize(course) &&
+        normalize(v.collegeName) === normalize(collegeName),
+    );
+
+    if (!isValid) {
+      return res.status(403).json({
+        message:
+          "Aapki details college ke official records se match nahi hui. Kripya Name, Roll No, Course aur College Name apne ID card ke hisab se exactly daalein.",
+      });
+    }
+
     const existingStudent = await Student.findOne({ email });
     if (existingStudent) {
       return res.status(400).json({ message: "Student already exists" });
+    }
+
+    // Same roll number se dusra account na bane (ek student = ek account)
+    const existingByRollNo = await Student.findOne({
+      rollNo: { $regex: `^${rollNo?.trim()}$`, $options: "i" },
+      collegeName: { $regex: `^${collegeName?.trim()}$`, $options: "i" },
+    });
+    if (existingByRollNo) {
+      return res.status(400).json({
+        message: "Is Roll No se pehle se ek account bana hua hai",
+      });
     }
 
     const userId = generateUserId(name, collegeName, rollNo);
