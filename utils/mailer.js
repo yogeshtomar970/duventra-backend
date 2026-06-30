@@ -1,5 +1,11 @@
 // utils/mailer.js
 import nodemailer from "nodemailer";
+import dns from "dns";
+
+// Render (aur kai cloud hosts) ka network IPv6 address resolve kar leta hai
+// for smtp.gmail.com, lekin uske paas IPv6 route hi nahi hota → "ENETUNREACH".
+// Yeh line Node.js ko force karti hai ki DNS lookup mein IPv4 ko priority de.
+dns.setDefaultResultOrder("ipv4first");
 
 // Gmail SMTP transporter
 // .env mein chahiye: GMAIL_USER, GMAIL_APP_PASSWORD
@@ -7,15 +13,11 @@ import nodemailer from "nodemailer";
 // GMAIL_APP_PASSWORD ek normal Gmail password NAHI hota — Google Account →
 // Security → 2-Step Verification ON karke → App Passwords se generate karna
 // padta hai (myaccount.google.com/apppasswords)
-//
-// NOTE: Render (aur kai cloud hosts) pe `service: "gmail"` shortcut (jo
-// internally port 465/SSL try karta hai) IPv6 route na milne ki wajah se
-// "ENETUNREACH" / connection timeout deta hai. Explicit host + port 587
-// (STARTTLS) zyada reliable hai cloud environments mein.
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
   secure: false, // port 587 ke liye false — STARTTLS khud upgrade karta hai
+  family: 4,     // ← explicitly IPv4 force karo (dns.setDefaultResultOrder ke saath double-safety)
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
@@ -40,7 +42,6 @@ export const sendOtpEmail = async (toEmail, otp) => {
         <p style="color: #888; font-size: 12px;">
           Yeh OTP 10 minute mein expire ho jaayega. Agar aapne yeh request nahi ki, toh is email ko ignore karein.
         </p>
-        
       </div>
     `,
   });
