@@ -40,6 +40,7 @@ export const sendOtpEmail = async (toEmail, otp) => {
         <p style="color: #888; font-size: 12px;">
           Yeh OTP 10 minute mein expire ho jaayega. Agar aapne yeh request nahi ki, toh is email ko ignore karein.
         </p>
+        
       </div>
     `,
   });
