@@ -49,7 +49,6 @@ export const studentSignup = async (req, res) => {
         normalize(v.collegeName) === normalize(collegeName),
     );
 
-
   
     if (!isValid) {
       return res.status(403).json({
