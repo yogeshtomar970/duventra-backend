@@ -50,7 +50,7 @@ export const studentSignup = async (req, res) => {
     );
 
 
-    
+  
     if (!isValid) {
       return res.status(403).json({
         message:
