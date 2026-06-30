@@ -33,6 +33,14 @@ const societySchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    resetOtp: {
+      type: String,
+      default: null,
+    },
+    resetOtpExpiry: {
+      type: Date,
+      default: null,
+    },
 
     bio: {
       type: String,
