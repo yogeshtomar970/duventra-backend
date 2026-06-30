@@ -1,48 +1,49 @@
 // utils/mailer.js
-import nodemailer from "nodemailer";
-import dns from "dns";
-
-// Render (aur kai cloud hosts) ka network IPv6 address resolve kar leta hai
-// for smtp.gmail.com, lekin uske paas IPv6 route hi nahi hota → "ENETUNREACH".
-// Yeh line Node.js ko force karti hai ki DNS lookup mein IPv4 ko priority de.
-dns.setDefaultResultOrder("ipv4first");
-
-// Gmail SMTP transporter
-// .env mein chahiye: GMAIL_USER, GMAIL_APP_PASSWORD
 //
-// GMAIL_APP_PASSWORD ek normal Gmail password NAHI hota — Google Account →
-// Security → 2-Step Verification ON karke → App Passwords se generate karna
-// padta hai (myaccount.google.com/apppasswords)
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // port 587 ke liye false — STARTTLS khud upgrade karta hai
-  family: 4,     // ← explicitly IPv4 force karo (dns.setDefaultResultOrder ke saath double-safety)
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-  connectionTimeout: 15000, // 15 sec — cloud host ka network thoda slow ho sakta hai
-});
+// Resend (HTTPS-based email API) — SMTP ki jagah yeh use kar rahe hain kyunki
+// Render ka network outbound SMTP ports (587/465) ke liye IPv6-only route deta
+// hai jiska route hi available nahi hota → "ENETUNREACH" error aata tha.
+// Resend normal HTTPS request bhejta hai, isliye yeh problem nahi aati.
+//
+// .env mein chahiye: RESEND_API_KEY
+// (resend.com → API Keys → Create API Key se milegi)
+
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 export const sendOtpEmail = async (toEmail, otp) => {
-  await transporter.sendMail({
-    from: `"Duventra" <${process.env.GMAIL_USER}>`,
-    to: toEmail,
-    subject: "Password Reset OTP",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 420px; margin: auto; padding: 24px; border: 1px solid #eee; border-radius: 12px;">
-        <h2 style="color: #b5651d; margin-bottom: 4px;">Password Reset</h2>
-        <p style="color: #444; font-size: 14px;">
-          Aapka password reset OTP yeh hai:
-        </p>
-        <div style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #222; text-align: center; margin: 20px 0; padding: 14px; background: #f7f3ee; border-radius: 8px;">
-          ${otp}
+  const res = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      // Apna domain verify karne tak sirf yeh default address use kar sakte ho
+      from: "Duventra <onboarding@resend.dev>",
+      to: [toEmail],
+      subject: "Password Reset OTP",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 420px; margin: auto; padding: 24px; border: 1px solid #eee; border-radius: 12px;">
+          <h2 style="color: #b5651d; margin-bottom: 4px;">Password Reset</h2>
+          <p style="color: #444; font-size: 14px;">
+            Aapka password reset OTP yeh hai:
+          </p>
+          <div style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #222; text-align: center; margin: 20px 0; padding: 14px; background: #f7f3ee; border-radius: 8px;">
+            ${otp}
+          </div>
+          <p style="color: #888; font-size: 12px;">
+            Yeh OTP 10 minute mein expire ho jaayega. Agar aapne yeh request nahi ki, toh is email ko ignore karein.
+          </p>
         </div>
-        <p style="color: #888; font-size: 12px;">
-          Yeh OTP 10 minute mein expire ho jaayega. Agar aapne yeh request nahi ki, toh is email ko ignore karein.
-        </p>
-      </div>
-    `,
+      `,
+    }),
   });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("Resend API error:", res.status, errBody);
+    throw new Error("Failed to send OTP email");
+  }
+
+  return res.json();
 };
