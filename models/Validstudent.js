@@ -13,4 +13,5 @@ const validStudentSchema = new mongoose.Schema(
   { timestamps: true, collection: "validstudents" }, // ← exact collection name
 );
 
+
 export default mongoose.model("ValidStudent", validStudentSchema);
