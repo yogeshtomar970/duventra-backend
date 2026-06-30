@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import Notification from "../models/Notification.js";
 import { getIO } from "../socket/ioInstance.js";
 import { sendNotification } from "../socket/socket.js";
-import validstudent from "../models/validstudent.js";
+import ValidStudent from "../models/ValidStudent.js";
 
 export const studentSignup = async (req, res) => {
   try {
@@ -38,7 +38,7 @@ export const studentSignup = async (req, res) => {
     // "John Doe" aur "john  doe" jaise minor typos block na karein.
     const normalize = (str) => (str || "").trim().toLowerCase().replace(/\s+/g, " ");
 
-    const allValidEntries = await validstudent.find({
+    const allValidEntries = await ValidStudent.find({
       rollNo: { $regex: `^${rollNo?.trim()}$`, $options: "i" },
     });
 
