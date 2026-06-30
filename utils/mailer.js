@@ -26,13 +26,13 @@ export const sendOtpEmail = async (toEmail, otp) => {
         <div style="font-family: Arial, sans-serif; max-width: 420px; margin: auto; padding: 24px; border: 1px solid #eee; border-radius: 12px;">
           <h2 style="color: #b5651d; margin-bottom: 4px;">Password Reset</h2>
           <p style="color: #444; font-size: 14px;">
-            Aapka password reset OTP yeh hai:
+            Your password reset OTP is:
           </p>
           <div style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #222; text-align: center; margin: 20px 0; padding: 14px; background: #f7f3ee; border-radius: 8px;">
             ${otp}
           </div>
           <p style="color: #888; font-size: 12px;">
-            Yeh OTP 10 minute mein expire ho jaayega. Agar aapne yeh request nahi ki, toh is email ko ignore karein.
+            This OTP will expire in 10 minutes. If you did not make this request, please ignore the email.
           </p>
         </div>
       `,
