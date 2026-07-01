@@ -9,27 +9,34 @@ export const verifySocietyEmail = async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: "Email required" });
 
-    const found = await SocietyEmail.findOne({ email: email.toLowerCase().trim() });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Debug: list all emails in collection
+    const allEmails = await SocietyEmail.find({}, { email: 1 });
+    console.log("DB societyEmails:", allEmails.map(e => e.email));
+    console.log("Looking for:", normalizedEmail);
+
+    const found = await SocietyEmail.findOne({ email: normalizedEmail });
+
     if (!found) {
       return res.status(404).json({ success: false, message: "Email is not registered as a society email. Please contact admin." });
     }
 
-    // Already signed up?
-    const existing = await Society.findOne({ email: email.toLowerCase().trim() });
+    const existing = await Society.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(400).json({ success: false, message: "Society already registered with this email." });
     }
 
     res.json({ success: true, message: "Email verified", societyName: found.societyName || "", collegeName: found.collegeName || "" });
   } catch (error) {
+    console.error("verifySocietyEmail error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const societySignup = async (req, res) => {
   try {
-    const { societyName, societyType, collegeName, coordinatorName, email, password, repassword } =
-      req.body;
+    const { societyName, societyType, collegeName, coordinatorName, email, password, repassword } = req.body;
 
     if (password !== repassword) {
       return res.status(400).json({ message: "Passwords do not match" });
@@ -48,11 +55,7 @@ export const societySignup = async (req, res) => {
 
     const generateSocietyId = (societyName, collegeName) => {
       const cleanSociety = societyName.replace(/\s+/g, "").toLowerCase();
-      const initials = collegeName
-        .split(" ")
-        .map((word) => word[0])
-        .join("")
-        .toUpperCase();
+      const initials = collegeName.split(" ").map((word) => word[0]).join("").toUpperCase();
       return `${cleanSociety}_${initials}`;
     };
 
@@ -77,32 +80,13 @@ export const societySignup = async (req, res) => {
 
     await society.save();
 
-    res.status(201).json({
-      success: true,
-      message: "Society registered successfully",
-    });
+    res.status(201).json({ success: true, message: "Society registered successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// GET SOCIETY PROFILE
-export const getSocietyPublicProfile = async (req, res) => {
-  try {
-    const society = await Society.findOne({ societyId: req.params.societyId })
-      .select("societyName collegeName societyType coordinatorName committee profilePic bio societyId")
-      .populate("committee.studentId", "name profilePic userId");
-
-    if (!society) {
-      return res.status(404).json({ success: false, message: "Society not found" });
-    }
-
-    res.status(200).json({ success: true, data: society });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
+// Keep remaining controller functions from original
 export const getSocietyProfile = async (req, res) => {
   try {
     const society = await Society.findById(req.params.id)
