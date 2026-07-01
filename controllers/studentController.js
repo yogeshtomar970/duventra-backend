@@ -13,7 +13,7 @@ export const verifyStudent = async (req, res) => {
     const { name, rollNo, course, collegeName } = req.body;
 
     if (!name || !rollNo || !course || !collegeName) {
-      return res.status(400).json({ message: "Sab fields required hain" });
+      return res.status(400).json({ message: "All fields are required." });
     }
 
     // Case-insensitive aur whitespace-trimmed match
@@ -27,7 +27,7 @@ export const verifyStudent = async (req, res) => {
     if (!valid) {
       return res.status(404).json({
         success: false,
-        message: "Details match nahi hui. Sahi naam, roll no, course aur college name daalo (jaise ID card pe likha hai).",
+        message: "The details did not match. Enter the correct name, roll number, course, and college name (exactly as written on the ID card).",
       });
     }
 
@@ -40,13 +40,13 @@ export const verifyStudent = async (req, res) => {
     if (alreadyRegistered) {
       return res.status(400).json({
         success: false,
-        message: "Is roll number se account pehle se bana hua hai. Login karein.",
+        message: "An account has already been created with this roll number. Please log in.",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "Verification successful — aage badhein",
+      message: "Verification successful — Proceed",
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
