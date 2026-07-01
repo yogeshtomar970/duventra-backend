@@ -1,6 +1,30 @@
 import Society from "../models/Society.js";
+import SocietyEmail from "../models/SocietyEmail.js";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
+
+// ── Verify society email against whitelist ──
+export const verifySocietyEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: "Email required" });
+
+    const found = await SocietyEmail.findOne({ email: email.toLowerCase().trim() });
+    if (!found) {
+      return res.status(404).json({ success: false, message: "Email is not registered as a society email. Please contact admin." });
+    }
+
+    // Already signed up?
+    const existing = await Society.findOne({ email: email.toLowerCase().trim() });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Society already registered with this email." });
+    }
+
+    res.json({ success: true, message: "Email verified", societyName: found.societyName || "", collegeName: found.collegeName || "" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const societySignup = async (req, res) => {
   try {
@@ -9,6 +33,12 @@ export const societySignup = async (req, res) => {
 
     if (password !== repassword) {
       return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    // ── Email whitelist check ──
+    const allowed = await SocietyEmail.findOne({ email: email.toLowerCase().trim() });
+    if (!allowed) {
+      return res.status(403).json({ message: "Email is not registered as a society email." });
     }
 
     const existingSociety = await Society.findOne({ email });
