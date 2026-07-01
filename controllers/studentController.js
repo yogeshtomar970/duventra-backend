@@ -165,15 +165,26 @@ export const searchStudentByName = async (req, res) => {
 export const getStudentSuggestions = async (req, res) => {
   try {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
-    const { studentId } = req.params; // can be student _id OR society societyId
+    const mongoose = (await import("mongoose")).default;
+    const { studentId } = req.params; // student _id OR society societyId string
 
     // Already followed students
     const follows = await StudentFollow.find({ followedBy: studentId });
-    const followedIds = follows.map(f => f.followedTo);
-    followedIds.push(studentId); // exclude self (in case studentId is a student _id)
+
+    // Sirf valid ObjectIds $nin mein — societyId string kabhi push mat karo
+    const followedObjectIds = follows
+      .map(f => f.followedTo)
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+
+    // Agar studentId khud ek valid ObjectId hai (student apna profile dekh raha hai)
+    // toh use bhi exclude karo
+    if (mongoose.Types.ObjectId.isValid(studentId)) {
+      followedObjectIds.push(new mongoose.Types.ObjectId(studentId));
+    }
 
     const suggestions = await Student.find({
-      _id: { $nin: followedIds },
+      _id: { $nin: followedObjectIds },
     }).select("name userId collegeName course year profilePic _id").limit(20);
 
     res.status(200).json({ success: true, data: suggestions });
@@ -181,6 +192,7 @@ export const getStudentSuggestions = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 export const followStudent = async (req, res) => {
   try {
