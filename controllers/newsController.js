@@ -183,7 +183,7 @@ export const deleteNews = async (req, res) => {
     if (news.userId.toString() !== userId) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized: Yeh news aapki nahi hai",
+        message: "Unauthorized: This news does not belong to you.",
       });
     }
 
@@ -227,7 +227,7 @@ export const updateNews = async (req, res) => {
     if (news.userId.toString() !== userId) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized: Yeh news aapki nahi hai",
+        message: "Unauthorized: This news does not belong to you.",
       });
     }
 
