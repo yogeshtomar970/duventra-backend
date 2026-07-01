@@ -32,7 +32,7 @@ export const uploadPosts = async (req, res) => {
     if (startDate && lastDate && new Date(lastDate) < new Date(startDate)) {
       return res.status(400).json({
         success: false,
-        message: "Last date, start date se pehle nahi ho sakti",
+        message: "The last date cannot be earlier than the start date.",
       });
     }
 
