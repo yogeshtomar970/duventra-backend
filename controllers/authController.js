@@ -81,7 +81,7 @@ export const forgotPassword = async (req, res) => {
     if (!user) {
       return res.status(200).json({
         success: true,
-        message: "Agar yeh email registered hai, toh OTP bhej diya gaya hai",
+        message: "If this email is registered, an OTP has been sent.",
       });
     }
 
@@ -94,7 +94,7 @@ export const forgotPassword = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Agar yeh email registered hai, toh OTP bhej diya gaya hai",
+      message: "If this email is registered, an OTP has been sent.",
     });
   } catch (error) {
     console.error("forgotPassword error:", error.message);
@@ -115,7 +115,7 @@ export const verifyOtp = async (req, res) => {
     }
 
     if (user.resetOtpExpiry < new Date()) {
-      return res.status(400).json({ message: "OTP expired, dobara try karein" });
+      return res.status(400).json({ message: "OTP expired, please try again." });
     }
 
     if (user.resetOtp !== otp) {
@@ -158,7 +158,7 @@ export const resetPassword = async (req, res) => {
     } catch (err) {
       return res
         .status(400)
-        .json({ message: "Reset link expired, dobara OTP mangwayein" });
+        .json({ message: "Reset link expired; request the OTP again." });
     }
 
     if (decoded.purpose !== "password_reset") {
