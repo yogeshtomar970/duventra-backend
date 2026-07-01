@@ -7,3 +7,4 @@ const societyEmailSchema = new mongoose.Schema({
 }, { timestamps: true, collection: "societyEmails" }); // ← exact DB collection name
 
 export default mongoose.model("SocietyEmail", societyEmailSchema);
+
