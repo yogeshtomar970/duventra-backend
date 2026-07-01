@@ -1,9 +1,10 @@
 import express from "express";
 import { uploadProfilePic } from "../middlewares/upload.js";
-import { societySignup, getSocietyProfile, getSocietyPublicProfile, updateSocietyProfile, addCommitteeMember, removeCommitteeMember } from "../controllers/societyController.js";
+import { societySignup, verifySocietyEmail, getSocietyProfile, getSocietyPublicProfile, updateSocietyProfile, addCommitteeMember, removeCommitteeMember } from "../controllers/societyController.js";
 
 const router = express.Router();
 
+router.post("/verify-email", verifySocietyEmail);
 router.post("/signup", societySignup);
 router.get("/public/:societyId", getSocietyPublicProfile);
 router.get("/profile/:id", getSocietyProfile);
