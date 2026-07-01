@@ -1,10 +1,57 @@
 import Student from "../models/Student.js";
 import Society from "../models/Society.js";
-
 import bcrypt from "bcryptjs";
 import Notification from "../models/Notification.js";
 import { getIO } from "../socket/ioInstance.js";
 import { sendNotification } from "../socket/socket.js";
+import ValidStudent from "../models/ValidStudent.js";
+
+// ── POST /api/student/verify — body: { name, rollNo, course, collegeName } ────
+// Signup se pehle check karta hai ki student validstudents collection mein hai ya nahi
+export const verifyStudent = async (req, res) => {
+  try {
+    const { name, rollNo, course, collegeName } = req.body;
+
+    if (!name || !rollNo || !course || !collegeName) {
+      return res.status(400).json({ message: "Sab fields required hain" });
+    }
+
+    // Case-insensitive aur whitespace-trimmed match
+    const valid = await ValidStudent.findOne({
+      name:        { $regex: `^${name.trim()}$`,        $options: "i" },
+      rollNo:      { $regex: `^${rollNo.trim()}$`,      $options: "i" },
+      course:      { $regex: `^${course.trim()}$`,      $options: "i" },
+      collegeName: { $regex: `^${collegeName.trim()}$`, $options: "i" },
+    });
+
+    if (!valid) {
+      return res.status(404).json({
+        success: false,
+        message: "Details match nahi hui. Sahi naam, roll no, course aur college name daalo (jaise ID card pe likha hai).",
+      });
+    }
+
+    // Pehle se signup to nahi kar liya?
+    const alreadyRegistered = await Student.findOne({
+      rollNo: { $regex: `^${rollNo.trim()}$`, $options: "i" },
+      collegeName: { $regex: `^${collegeName.trim()}$`, $options: "i" },
+    });
+
+    if (alreadyRegistered) {
+      return res.status(400).json({
+        success: false,
+        message: "Is roll number se account pehle se bana hua hai. Login karein.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Verification successful — aage badhein",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 export const studentSignup = async (req, res) => {
   try {
@@ -34,17 +81,6 @@ export const studentSignup = async (req, res) => {
     const existingStudent = await Student.findOne({ email });
     if (existingStudent) {
       return res.status(400).json({ message: "Student already exists" });
-    }
-
-    // Same roll number se dusra account na bane (ek student = ek account)
-    const existingByRollNo = await Student.findOne({
-      rollNo: { $regex: `^${rollNo?.trim()}$`, $options: "i" },
-      collegeName: { $regex: `^${collegeName?.trim()}$`, $options: "i" },
-    });
-    if (existingByRollNo) {
-      return res.status(400).json({
-        message: "Is Roll No se pehle se ek account bana hua hai",
-      });
     }
 
     const userId = generateUserId(name, collegeName, rollNo);

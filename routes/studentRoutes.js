@@ -1,6 +1,7 @@
 import express from "express";
 import {
   studentSignup,
+  verifyStudent,
   getStudentProfile,
   getStudentPublicProfile,
   getStudentByUserId,
@@ -18,7 +19,8 @@ import { protect } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.post("/signup", uploadIdCard.single("idCard"), studentSignup);
+router.post("/verify", verifyStudent);       // ← step 1: details validate
+router.post("/signup", uploadIdCard.single("idCard"), studentSignup);  // ← step 2: actual signup
 router.get("/profile/:id", getStudentProfile);
 router.get("/public/:userId", getStudentPublicProfile);
 router.get("/check-follow/:followerId/:studentId", checkStudentFollow);
