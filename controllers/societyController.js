@@ -228,6 +228,7 @@ export const addCommitteeMember = async (req, res) => {
       "committee.studentId",
       "name userId profilePic"
     );
+    
 
     res.status(200).json({ success: true, data: updatedSociety });
   } catch (error) {
