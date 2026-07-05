@@ -226,7 +226,7 @@ export const addCommitteeMember = async (req, res) => {
 
     const updatedSociety = await Society.findById(req.params.id).populate(
       "committee.studentId",
-      "name userId"
+      "name userId profilePic"
     );
 
     res.status(200).json({ success: true, data: updatedSociety });
