@@ -1,5 +1,4 @@
 // socket/socket.js
-import jwt from "jsonwebtoken";
 import Student from "../models/Student.js";
 import Society from "../models/Society.js";
 
@@ -16,41 +15,9 @@ const saveLastSeen = async (userId) => {
   }
 };
 
-// 🔒 Har socket connection JWT se verify hoti hai — client jo bhi userId
-// query mein bheje, use IGNORE kiya jaata hai. Real identity hamesha
-// verified token se hi nikalti hai, isliye koi doosre ka userId claim
-// karke uske messages/typing/online-status intercept nahi kar sakta.
-const authenticateSocket = async (socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error("Authentication required"));
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // { id, role }
-
-    let customId = null;
-    if (decoded.role === "student") {
-      const student = await Student.findById(decoded.id).select("userId");
-      customId = student?.userId || null;
-    } else if (decoded.role === "society") {
-      const society = await Society.findById(decoded.id).select("societyId");
-      customId = society?.societyId || null;
-    }
-
-    if (!customId) return next(new Error("User not found"));
-
-    socket.verifiedUserId = customId; // ← ye ab trusted source hai
-    next();
-  } catch (err) {
-    
-    next(new Error("Invalid or expired token"));
-  }
-};
-
 export const initSocket = (io) => {
-  io.use(authenticateSocket);
-
   io.on("connection", (socket) => {
-    const userId = socket.verifiedUserId; // ✅ ab client-supplied nahi, JWT-verified hai
+    const userId = socket.handshake.query.userId;
 
     if (userId) {
       onlineUsers.set(userId, socket.id);
