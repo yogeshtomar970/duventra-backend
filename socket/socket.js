@@ -41,6 +41,7 @@ const authenticateSocket = async (socket, next) => {
     socket.verifiedUserId = customId; // ← ye ab trusted source hai
     next();
   } catch (err) {
+    
     next(new Error("Invalid or expired token"));
   }
 };
