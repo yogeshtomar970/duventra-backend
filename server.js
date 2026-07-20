@@ -18,6 +18,7 @@ import joinRoutes from "./routes/joinRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
+import placementRoutes from "./routes/placementRoutes.js";
 
 import { initSocket } from "./socket/socket.js";
 import { setIO } from "./socket/ioInstance.js";
