@@ -1,6 +1,6 @@
 // controllers/placementController.js
-import Placement from "../models/Placement.js";
-import PlacementApplication from "../models/PlacementApplication.js";
+import Placement from "../models/placementModel.js";
+import PlacementApplication from "../models/placementApplicationModel.js";
 
 // ── GET all jobs ──────────────────────────────────────
 export const getAllJobs = async (req, res) => {
