@@ -54,6 +54,7 @@ app.use("/api/join", joinRoutes);
 app.use("/api/notification", notificationRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/feedback", feedbackRoutes);
+app.use("/api/placement", placementRoutes);
 
 app.get("/", (_, res) => res.json({ status: "ok", message: "Campus API 🚀" }));
 app.use((_, res) => res.status(404).json({ message: "Route not found" }));
