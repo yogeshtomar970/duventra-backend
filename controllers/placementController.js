@@ -29,10 +29,15 @@ export const createJob = async (req, res) => {
 // ── DELETE job ────────────────────────────────────────
 export const deleteJob = async (req, res) => {
   try {
-    const { societyId } = req.body;
-    const job = await Placement.findById(req.params.id);
+    const { id, societyId } = req.params;
+    const job = await Placement.findById(id);
     if (!job) return res.status(404).json({ success: false, message: "Job not found" });
-    if (job.societyId !== societyId) return res.status(403).json({ success: false, message: "Not authorized" });
+    
+    // Sirf jo society ne post kiya wahi delete kar sakti hai
+    if (job.societyId !== societyId) {
+      return res.status(403).json({ success: false, message: "Aap is job ko delete nahi kar sakte" });
+    }
+    
     await job.deleteOne();
     res.json({ success: true, message: "Job deleted" });
   } catch (err) {
