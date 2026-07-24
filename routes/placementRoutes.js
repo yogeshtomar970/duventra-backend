@@ -7,6 +7,7 @@ import {
   applyJob,
   getApplied,
   getJobApplications,
+  getJobsBySociety
 } from "../controllers/placementController.js";
  
 const router = express.Router();
@@ -18,5 +19,6 @@ router.post("/apply",                      applyJob);             // POST /api/p
 router.get("/applied/:userId",             getApplied);           // GET  /api/placement/applied/:userId
 router.get("/applications/:jobId",         getJobApplications);   // GET  /api/placement/applications/:jobId
 router.delete("/jobs/:id/:societyId",      deleteJob);            // DEL  /api/placement/jobs/:id/:societyId
+router.get("/jobs/society/:societyId",     getJobsBySociety);    // GET  /api/placement/jobs/society/:societyId
 
 export default router;
