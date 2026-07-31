@@ -1,11 +1,14 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
 import connectDB from "./config/db.js";
+import { generalLimiter } from "./middlewares/rateLimiter.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
@@ -26,11 +29,27 @@ import { setIO } from "./socket/ioInstance.js";
 
 dotenv.config();
 
+// Critical env vars ke bina server start hi na ho — silent misconfiguration se bachne ke liye
+const REQUIRED_ENV_VARS = ["JWT_SECRET", "MONGO_URI"];
+for (const key of REQUIRED_ENV_VARS) {
+  if (!process.env[key]) {
+    console.error(`❌  Missing required env var: ${key}`);
+    process.exit(1);
+  }
+}
+if (process.env.JWT_SECRET.length < 32) {
+  console.error("❌  JWT_SECRET is too short/weak. Use at least 32 random characters.");
+  process.exit(1);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Security headers (XSS, clickjacking, MIME-sniffing, hides X-Powered-By, etc.)
+app.use(helmet());
 
 app.use(
   cors({
@@ -39,8 +58,17 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Body size limits — bina limit ke bade payloads DoS kar sakte hain
+app.use(express.json({ limit: "50kb" }));
+app.use(express.urlencoded({ extended: true, limit: "50kb" }));
+
+// NoSQL injection protection — req.body/query/params se $ / . operators strip karta hai
+app.use(mongoSanitize());
+
+// General rate limiting — sabhi routes par basic abuse protection
+app.use(generalLimiter);
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
@@ -58,7 +86,15 @@ app.use("/api/placement", placementRoutes);
 
 app.get("/", (_, res) => res.json({ status: "ok", message: "Campus API 🚀" }));
 app.use((_, res) => res.status(404).json({ message: "Route not found" }));
-app.use((err, _, res, __) => res.status(500).json({ message: err.message }));
+
+// Global error handler — client ko sirf generic message, full error sirf server logs me
+app.use((err, _req, res, _next) => {
+  console.error("Unhandled error:", err);
+  const isProd = process.env.NODE_ENV === "production";
+  res.status(err.status || 500).json({
+    message: isProd ? "Something went wrong. Please try again later." : err.message,
+  });
+});
 
 // HTTP server + Socket.IO
 const server = http.createServer(app);
