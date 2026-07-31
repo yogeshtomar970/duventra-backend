@@ -2,6 +2,7 @@ import Student from "../models/Student.js";
 import Society from "../models/Society.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import validator from "validator";
 import { sendOtpEmail } from "../utils/mailer.js";
 
 export const loginUser = async (req, res) => {
@@ -10,6 +11,9 @@ export const loginUser = async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
+    }
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
     }
 
     // Check Student first
@@ -54,7 +58,7 @@ export const loginUser = async (req, res) => {
     });
   } catch (error) {
     console.error("loginUser error:", error.message);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Server error, try again later" });
   }
 };
 
@@ -73,6 +77,9 @@ export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required" });
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
 
     const { user } = await findUserByEmail(email);
 
@@ -146,10 +153,19 @@ export const resetPassword = async (req, res) => {
         .status(400)
         .json({ message: "Reset token and new password are required" });
 
-    if (newPassword.length < 6) {
-      return res
-        .status(400)
-        .json({ message: "Password must be at least 6 characters long" });
+    if (
+      !validator.isStrongPassword(newPassword, {
+        minLength: 8,
+        minLowercase: 1,
+        minUppercase: 0,
+        minNumbers: 1,
+        minSymbols: 0,
+      })
+    ) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and include a letter and a number",
+      });
     }
 
     let decoded;
@@ -182,4 +198,3 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error, try again later" });
   }
 };
-
