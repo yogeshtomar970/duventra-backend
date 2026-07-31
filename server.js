@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import mongoSanitize from "express-mongo-sanitize";
+// import mongoSanitize from "express-mongo-sanitize";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -64,7 +64,7 @@ app.use(express.json({ limit: "50kb" }));
 app.use(express.urlencoded({ extended: true, limit: "50kb" }));
 
 // NoSQL injection protection — req.body/query/params se $ / . operators strip karta hai
-app.use(mongoSanitize());
+// app.use(mongoSanitize());
 
 // General rate limiting — sabhi routes par basic abuse protection
 app.use(generalLimiter);
