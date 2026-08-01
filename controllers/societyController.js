@@ -123,6 +123,16 @@ export const getSocietyProfile = async (req, res) => {
 
 export const updateSocietyProfile = async (req, res) => {
   try {
+    // ✅ FIX: sirf logged-in society hi apna khud ka profile update kar sake —
+    // JWT (req.user.id) se verify, params ke id se nahi. Pehle route par
+    // koi auth hi nahi tha, matlab koi bhi (bina login) kisi bhi society ka
+    // bio/profile-pic uski id jaan kar badal sakta tha
+    if (req.user.role !== "society" || req.user.id !== req.params.id) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to update this profile" });
+    }
+
     const society = await Society.findById(req.params.id);
 
     if (!society) {
@@ -153,6 +163,15 @@ export const updateSocietyProfile = async (req, res) => {
 
 export const removeCommitteeMember = async (req, res) => {
   try {
+    // ✅ FIX: sirf logged-in society hi apni khud ki committee edit kar sake —
+    // pehle route par auth hi nahi tha, koi bhi kisi bhi society ki committee
+    // se member remove kar sakta tha
+    if (req.user.role !== "society" || req.user.id !== req.params.id) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized" });
+    }
+
     const { studentId } = req.body;
 
     if (!studentId) {
@@ -188,6 +207,15 @@ export const removeCommitteeMember = async (req, res) => {
 
 export const addCommitteeMember = async (req, res) => {
   try {
+    // ✅ FIX: sirf logged-in society hi apni khud ki committee edit kar sake —
+    // pehle route par auth hi nahi tha, koi bhi kisi bhi society ki committee
+    // me member add kar sakta tha
+    if (req.user.role !== "society" || req.user.id !== req.params.id) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized" });
+    }
+
     const { studentId, post } = req.body;
 
     if (!studentId || !post) {
