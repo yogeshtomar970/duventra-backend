@@ -34,7 +34,7 @@ export const createJob = async (req, res) => {
         .json({ success: false, message: "Society not found" });
     }
 
-    const { title, jobType, location, description, customFields } = req.body;
+    const { title, jobType, location, description, formLink, customFields } = req.body;
     if (!title || !jobType || !description) {
       return res
         .status(400)
@@ -45,6 +45,7 @@ export const createJob = async (req, res) => {
       jobType,
       location,
       description,
+      formLink: formLink || "",
       societyId: society.societyId,
       societyName: society.societyName,
       societyPic: society.profilePic || "",
