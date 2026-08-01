@@ -58,7 +58,8 @@ const getRecipientId = async (mongoId, uploadedBy) => {
     const society = await Society.findById(mongoId).select("societyId");
     if (society?.societyId) return society.societyId; // custom societyId string
   }
-  return mongoId.toString(); // student: MongoDB _id
+  const student = await Student.findById(mongoId).select("userId");
+  return student?.userId || mongoId.toString(); // student: custom userId field
 };
 
 // POST /api/news/upload
