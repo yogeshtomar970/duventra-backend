@@ -4,8 +4,15 @@ import { v2 as cloudinary } from "cloudinary";
 
 export const uploadPosts = async (req, res) => {
   try {
-    const { description, formLink, societyId, eventTypes, startDate, lastDate } =
+    const { description, formLink, eventTypes, startDate, lastDate } =
       req.body;
+
+    if (req.user.role !== "society") {
+      return res.status(403).json({
+        success: false,
+        message: "Only societies can upload posts",
+      });
+    }
 
     if (!req.file) {
       return res.status(400).json({
@@ -14,7 +21,9 @@ export const uploadPosts = async (req, res) => {
       });
     }
 
-    const society = await Society.findById(societyId);
+    // ✅ FIX: society ab authenticated user (JWT) se aati hai, body ke societyId se nahi —
+    // pehle koi bhi logged-in society dusri society ban kar post daal sakti thi
+    const society = await Society.findById(req.user.id);
 
     if (!society) {
       return res.status(404).json({
@@ -156,7 +165,7 @@ export const increaseViews = async (req, res) => {
 export const updatePost = async (req, res) => {
   try {
     const { postId } = req.params;
-    const { description, formLink, societyId } = req.body;
+    const { description, formLink } = req.body;
 
     const post = await Post.findById(postId);
 
@@ -166,7 +175,17 @@ export const updatePost = async (req, res) => {
         .json({ success: false, message: "Post not found" });
     }
 
-    if (post.societyId !== societyId) {
+    // ✅ FIX: ownership ab client-supplied societyId se nahi, JWT (req.user.id) se
+    // resolve hoti hai — pehle koi bhi society body me target society ka asli
+    // societyId bhejkar uski post edit kar sakti thi
+    if (req.user.role !== "society") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: This post is not yours.",
+      });
+    }
+    const society = await Society.findById(req.user.id).select("societyId");
+    if (!society || post.societyId !== society.societyId) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized:This post is not yours.",
@@ -215,7 +234,6 @@ export const getPostById = async (req, res) => {
 export const deletePost = async (req, res) => {
   try {
     const { postId } = req.params;
-    const { societyId } = req.body;
 
     const post = await Post.findById(postId);
 
@@ -225,7 +243,17 @@ export const deletePost = async (req, res) => {
         .json({ success: false, message: "Post not found" });
     }
 
-    if (post.societyId !== societyId) {
+    // ✅ FIX: ownership ab JWT (req.user.id) se resolve hoti hai, body ke
+    // societyId se nahi — pehle koi bhi society dusri society ki post delete
+    // kar sakti thi bas uska asli societyId body me bhej kar
+    if (req.user.role !== "society") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: This post is not yours.",
+      });
+    }
+    const society = await Society.findById(req.user.id).select("societyId");
+    if (!society || post.societyId !== society.societyId) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized: This post is not yours.",
