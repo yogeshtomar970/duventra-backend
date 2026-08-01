@@ -346,7 +346,7 @@ export const addNewsComment = async (req, res) => {
       newsId,
       userId,
       text: text.trim(),
-      userName:c.userName || "User",
+      userName: name || "User",
     }); // ← userName save
 
     // enriched comments return karo profilePic ke saath
