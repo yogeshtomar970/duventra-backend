@@ -48,6 +48,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ✅ FIX: hosting platform (Render/Railway/Vercel/Nginx waghera) ek reverse
+// proxy ke peeche chalata hai. Iske bina express `req.ip` ko proxy ka IP
+// samajh leta hai — matlab express-rate-limit SABHI users ko ek hi IP maan
+// kar unka rate-limit bucket share kar deta hai. "1" = ek hop proxy trust
+// karo (X-Forwarded-For ka sabse right wala IP le lo).
+app.set("trust proxy", 1);
+
 // Security headers (XSS, clickjacking, MIME-sniffing, hides X-Powered-By, etc.)
 app.use(helmet());
 
