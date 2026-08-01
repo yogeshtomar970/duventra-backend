@@ -333,6 +333,16 @@ export const getStudentMembers = async (req, res) => {
 
 export const updateStudentProfile = async (req, res) => {
   try {
+    // ✅ FIX: student sirf apna hi profile update kar sakta hai — JWT
+    // (req.user.id) se verify, params ke id se nahi. Pehle koi bhi
+    // logged-in student kisi bhi doosre student ki id params me daal kar
+    // uska profile (collegeName, year, profilePic) badal sakta tha
+    if (req.user.role !== "student" || req.user.id !== req.params.id) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to update this profile" });
+    }
+
     const student = await Student.findById(req.params.id);
 
     if (!student) {
