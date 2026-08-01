@@ -12,6 +12,7 @@ const placementSchema = new mongoose.Schema(
     jobType:      { type: String, required: true },
     location:     { type: String, default: "Delhi, India" },
     description:  { type: String, required: true },
+    formLink:     { type: String, default: "" },
     societyId:    { type: String, required: true },
     societyName:  { type: String, required: true },
     societyPic:   { type: String, default: "" },
