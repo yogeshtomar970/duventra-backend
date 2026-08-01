@@ -58,6 +58,44 @@ export const createJob = async (req, res) => {
 };
 
 // ── DELETE job ────────────────────────────────────────
+// ── PUT update job (society admin only, apni khud ki job) ─
+export const updateJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await Placement.findById(id);
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    // Same ownership pattern jo deleteJob me hai — JWT se verify, params se nahi
+    if (req.user.role !== "society") {
+      return res.status(403).json({
+        success: false,
+        message: "Aap is job ko edit nahi kar sakte",
+      });
+    }
+    const society = await Society.findById(req.user.id).select("societyId");
+    if (!society || job.societyId !== society.societyId) {
+      return res.status(403).json({
+        success: false,
+        message: "Aap is job ko edit nahi kar sakte",
+      });
+    }
+
+    const { title, jobType, location, description, formLink } = req.body;
+    if (title !== undefined) job.title = title;
+    if (jobType !== undefined) job.jobType = jobType;
+    if (location !== undefined) job.location = location;
+    if (description !== undefined) job.description = description;
+    if (formLink !== undefined) job.formLink = formLink;
+
+    await job.save();
+    res.json({ success: true, data: job });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const deleteJob = async (req, res) => {
   try {
     const { id } = req.params;

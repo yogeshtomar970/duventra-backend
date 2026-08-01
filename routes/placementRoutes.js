@@ -3,6 +3,7 @@ import express from "express";
 import {
   getAllJobs,
   createJob,
+  updateJob,
   deleteJob,
   applyJob,
   getApplied,
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.get("/jobs",                        getAllJobs);           // GET  /api/placement/jobs
 router.post("/jobs",                       protect, createJob);            // POST /api/placement/jobs
+router.put("/jobs/:id",                    protect, updateJob);            // PUT  /api/placement/jobs/:id
 router.delete("/jobs/:id",                 protect, deleteJob);            // DEL  /api/placement/jobs/:id
 router.post("/apply",                      protect, applyJob);             // POST /api/placement/apply
 router.get("/applied/:userId",             protect, getApplied);           // GET  /api/placement/applied/:userId
