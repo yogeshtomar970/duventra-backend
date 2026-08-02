@@ -5,7 +5,6 @@ import Society from "../models/Society.js";
 import Notification from "../models/Notification.js";
 import { getIO } from "../socket/ioInstance.js";
 import { sendNotification } from "../socket/socket.js";
-import { resolvePostActorId } from "../utils/resolveIdentity.js";
 
 // Helper: get actor info (student or society)
 const getActorInfo = async (userId) => {
@@ -40,27 +39,18 @@ const getActorInfo = async (userId) => {
 // POST /api/comment/add
 export const addComment = async (req, res) => {
   try {
-    const { postId, text } = req.body;
+    const { postId, userId, userName, userRole, text } = req.body;
 
-    // ✅ FIX: route ab protect middleware ke peeche hai, aur identity
-    // (userId/userRole) JWT se resolve hoti hai, body se nahi — pehle route
-    // par auth hi nahi tha aur koi bhi kisi ke naam se comment kar sakta tha
-    const userId = await resolvePostActorId(req.user);
-    const userRole = req.user?.role;
-    if (!userId) return res.status(403).json({ success: false, message: "Not authorized" });
-
-    if (!postId || !text?.trim()) {
+    if (!postId || !userId || !text?.trim()) {
       return res
         .status(400)
-        .json({ success: false, message: "postId and text are required" });
+        .json({ success: false, message: "postId, userId, text are required" });
     }
-
-    const actorForName = await getActorInfo(userId);
 
     await Comment.create({
       postId,
       userId,
-      userName: actorForName.name || "User",
+      userName: userName || "User",
       userRole: userRole || "student",
       text: text.trim(),
     });

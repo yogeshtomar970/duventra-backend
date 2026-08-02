@@ -1,12 +1,10 @@
 import Student from "../models/Student.js";
 import Society from "../models/Society.js";
 import bcrypt from "bcryptjs";
-import validator from "validator";
 import Notification from "../models/Notification.js";
 import { getIO } from "../socket/ioInstance.js";
 import { sendNotification } from "../socket/socket.js";
 import ValidStudent from "../models/ValidStudent.js";
-import { resolveFollowActorId } from "../utils/resolveIdentity.js";
 
 // ── POST /api/student/verify — body: { name, rollNo, course, collegeName } ────
 // Signup se pehle check karta hai ki student validstudents collection mein hai ya nahi
@@ -80,22 +78,6 @@ export const studentSignup = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    // ✅ FIX: signup pe bhi password strength check — pehle sirf reset-password
-    // pe check hota tha, signup pe koi bhi weak password allow ho jaata tha
-    if (
-      !validator.isStrongPassword(password, {
-        minLength: 8,
-        minLowercase: 1,
-        minUppercase: 0,
-        minNumbers: 1,
-        minSymbols: 0,
-      })
-    ) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters and include a letter and a number",
-      });
-    }
-
     const existingStudent = await Student.findOne({ email });
     if (existingStudent) {
       return res.status(400).json({ message: "Student already exists" });
@@ -149,9 +131,7 @@ export const getStudentProfile = async (req, res) => {
 
 export const getStudentByUserId = async (req, res) => {
   try {
-    const student = await Student.findOne({ userId: req.params.id }).select(
-      "name userId collegeName course year profilePic"
-    );
+    const student = await Student.findOne({ userId: req.params.id });
 
     if (!student) {
       return res
@@ -217,14 +197,7 @@ export const getStudentSuggestions = async (req, res) => {
 export const followStudent = async (req, res) => {
   try {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
-    const { targetId } = req.body;
-
-    // ✅ FIX: apni identity (myId) aur followerType JWT se resolve karo,
-    // body se nahi — pehle koi bhi apni marzi ka myId bhej kar kisi aur
-    // ke naam se follow kar sakta tha
-    const myId = await resolveFollowActorId(req.user);
-    const followerType = req.user.role;
-    if (!myId) return res.status(403).json({ message: "Not authorized" });
+    const { myId, targetId, followerType } = req.body; // followerType = "student" | "society"
 
     if (myId === targetId) return res.status(400).json({ message: "Can't follow yourself" });
 
@@ -290,9 +263,7 @@ export const followStudent = async (req, res) => {
 export const unfollowStudent = async (req, res) => {
   try {
     const StudentFollow = (await import("../models/StudentFollow.js")).default;
-    const { targetId } = req.body;
-    const myId = await resolveFollowActorId(req.user);
-    if (!myId) return res.status(403).json({ message: "Not authorized" });
+    const { myId, targetId } = req.body;
     await StudentFollow.findOneAndDelete({ followedBy: myId, followedTo: targetId });
     res.json({ followed: false });
   } catch (error) {
