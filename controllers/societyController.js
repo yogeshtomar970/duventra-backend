@@ -2,6 +2,7 @@ import Society from "../models/Society.js";
 import SocietyEmail from "../models/SocietyEmail.js";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
+import validator from "validator";
 
 // ── Verify society email against whitelist ──
 export const verifySocietyEmail = async (req, res) => {
@@ -33,6 +34,22 @@ export const societySignup = async (req, res) => {
 
     if (password !== repassword) {
       return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    // ✅ FIX: signup pe bhi password strength check — pehle sirf reset-password
+    // pe check hota tha, signup pe koi bhi weak password allow ho jaata tha
+    if (
+      !validator.isStrongPassword(password, {
+        minLength: 8,
+        minLowercase: 1,
+        minUppercase: 0,
+        minNumbers: 1,
+        minSymbols: 0,
+      })
+    ) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters and include a letter and a number",
+      });
     }
 
     // ── Email whitelist check ──
