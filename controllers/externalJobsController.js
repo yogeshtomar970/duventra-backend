@@ -5,7 +5,7 @@
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const cache = new Map(); // key -> { data, expiresAt }
 
-const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search";
+const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search-v2";
 
 // ── GET /api/placement/external-jobs?type=fresher&location=India&page=1 ──
 export const getExternalJobs = async (req, res) => {
@@ -33,11 +33,13 @@ export const getExternalJobs = async (req, res) => {
       return res.json({ success: true, data: cached.data, cached: true });
     }
 
-    const url = `${JSEARCH_URL}?query=${encodeURIComponent(query)}&page=${page}&num_pages=1&country=in`;
+    // ✅ search-v2 endpoint (naya) — /search wala purana endpoint hat gaya hai
+    const url = `${JSEARCH_URL}?query=${encodeURIComponent(query)}&num_pages=1&country=in&date_posted=all`;
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
+        "Content-Type": "application/json",
         "x-rapidapi-key": process.env.RAPIDAPI_KEY,
         "x-rapidapi-host": "jsearch.p.rapidapi.com",
       },
