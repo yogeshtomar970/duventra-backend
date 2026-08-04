@@ -10,10 +10,12 @@ import {
   getJobApplications,
   getJobsBySociety
 } from "../controllers/placementController.js";
+import { getExternalJobs } from "../controllers/externalJobsController.js";
 import { protect } from "../middlewares/auth.js";
  
 const router = express.Router();
 
+router.get("/external-jobs",               getExternalJobs);      // GET  /api/placement/external-jobs?type=fresher&location=India
 router.get("/jobs",                        getAllJobs);           // GET  /api/placement/jobs
 router.post("/jobs",                       protect, createJob);            // POST /api/placement/jobs
 router.put("/jobs/:id",                    protect, updateJob);            // PUT  /api/placement/jobs/:id
