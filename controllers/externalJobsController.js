@@ -56,6 +56,18 @@ export const getExternalJobs = async (req, res) => {
 
     const json = await response.json();
 
+    // ✅ FIX: JSearch kabhi kabhi HTTP 200 ke saath bhi status:"ERROR" bhejta
+    // hai (e.g. wrong plan, endpoint not included in subscription). Pehle
+    // isko bhi "0 jobs mile" treat kar rahe the, jo UI par confusing tha —
+    // ab isse asli error ke roop me flag karte hain.
+    if (json?.status === "ERROR") {
+      console.error("getExternalJobs: JSearch returned status ERROR:", JSON.stringify(json).slice(0, 1000));
+      return res.status(502).json({
+        success: false,
+        message: json?.error?.message || "JSearch API returned an error — check RapidAPI subscription/plan.",
+      });
+    }
+
     // search-v2 ka response shape /search se thoda alag ho sakta hai —
     // isliye kayi possible locations check karte hain jahan jobs array ho sakta hai
     let rawJobs = [];
@@ -63,14 +75,8 @@ export const getExternalJobs = async (req, res) => {
       rawJobs = json.data;
     } else if (Array.isArray(json?.data?.jobs)) {
       rawJobs = json.data.jobs;
-    } else if (Array.isArray(json?.data?.results)) {
-      rawJobs = json.data.results;
-    } else if (Array.isArray(json?.data?.data)) {
-      rawJobs = json.data.data;
     } else if (Array.isArray(json?.jobs)) {
       rawJobs = json.jobs;
-    } else if (Array.isArray(json?.results)) {
-      rawJobs = json.results;
     } else if (Array.isArray(json)) {
       rawJobs = json;
     } else {
@@ -82,14 +88,20 @@ export const getExternalJobs = async (req, res) => {
       );
     }
 
-    // Debug: har request par saaf log — isse pata chalega ki JSearch se
-    // asal mein kitni jobs aayi, chahe result khaali hi kyu na ho
-    console.log(
-      `getExternalJobs debug: query="${query}" status="${json?.status}" rawJobs.length=${rawJobs.length} json_top_keys=${JSON.stringify(Object.keys(json || {}))} data_type=${Array.isArray(json?.data) ? "array" : typeof json?.data} data_keys=${JSON.stringify(typeof json?.data === "object" && json?.data ? Object.keys(json.data) : null)}`
-    );
-    if (rawJobs.length > 0) {
-      console.log(
-        `getExternalJobs debug: first job keys=${JSON.stringify(Object.keys(rawJobs[0]))}`
+    // ✅ DEBUG: jab bhi 0 jobs milein, poora response log karo — taaki pata
+    // chale ye JSearch ka genuine "no results" hai ya kuch aur (quota,
+    // wrong plan/endpoint, status:ERROR waghera). RapidAPI key expose
+    // nahi hoti isliye ye safe hai.
+    if (rawJobs.length === 0) {
+      console.error(
+        "getExternalJobs: got 0 raw jobs for query:",
+        query,
+        "| response status field:",
+        json?.status,
+        "| request_id:",
+        json?.request_id,
+        "| full response:",
+        JSON.stringify(json).slice(0, 1500)
       );
     }
 
