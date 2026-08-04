@@ -55,7 +55,26 @@ export const getExternalJobs = async (req, res) => {
     }
 
     const json = await response.json();
-    const rawJobs = json?.data || [];
+
+    // search-v2 ka response shape /search se thoda alag ho sakta hai —
+    // isliye kayi possible locations check karte hain jahan jobs array ho sakta hai
+    let rawJobs = [];
+    if (Array.isArray(json?.data)) {
+      rawJobs = json.data;
+    } else if (Array.isArray(json?.data?.jobs)) {
+      rawJobs = json.data.jobs;
+    } else if (Array.isArray(json?.jobs)) {
+      rawJobs = json.jobs;
+    } else if (Array.isArray(json)) {
+      rawJobs = json;
+    } else {
+      // Kuch bhi match nahi hua — response ka structure log karo taaki dekh
+      // sakein asal mein data kahan hai
+      console.error(
+        "getExternalJobs: unexpected response shape, top-level keys:",
+        Object.keys(json || {})
+      );
+    }
 
     // Sirf wahi fields bhejo jo frontend ko chahiye — payload halka rahega
     const jobs = rawJobs.map((j) => ({
