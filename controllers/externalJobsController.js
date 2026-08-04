@@ -76,6 +76,17 @@ export const getExternalJobs = async (req, res) => {
       );
     }
 
+    // Debug: har request par saaf log — isse pata chalega ki JSearch se
+    // asal mein kitni jobs aayi, chahe result khaali hi kyu na ho
+    console.log(
+      `getExternalJobs debug: query="${query}" status="${json?.status}" rawJobs.length=${rawJobs.length} json_top_keys=${JSON.stringify(Object.keys(json || {}))}`
+    );
+    if (rawJobs.length > 0) {
+      console.log(
+        `getExternalJobs debug: first job keys=${JSON.stringify(Object.keys(rawJobs[0]))}`
+      );
+    }
+
     // Sirf wahi fields bhejo jo frontend ko chahiye — payload halka rahega
     const jobs = rawJobs.map((j) => ({
       id: j.job_id,
