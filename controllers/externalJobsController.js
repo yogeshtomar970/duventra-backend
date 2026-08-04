@@ -97,7 +97,11 @@ export const getExternalJobs = async (req, res) => {
       source: "external",
     }));
 
-    cache.set(cacheKey, { data: jobs, expiresAt: Date.now() + CACHE_TTL_MS });
+    // Sirf non-empty results cache karo — agar kabhi transient empty response
+    // aa jaaye toh wo 1 ghante ke liye stuck na ho jaaye
+    if (jobs.length > 0) {
+      cache.set(cacheKey, { data: jobs, expiresAt: Date.now() + CACHE_TTL_MS });
+    }
 
     res.json({ success: true, data: jobs, cached: false });
   } catch (err) {
