@@ -7,39 +7,30 @@ const cache = new Map(); // key -> { data, expiresAt }
 
 const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search-v2";
 
-// ✅ FIX: JSearch (Google for Jobs ke upar) generic country-level queries
-// jaise "fresher jobs in India" ke against bahut kam / khaali results deta
-// hai — unki khud ki docs bhi city-level query recommend karti hain
-// (e.g. "developer in berlin", not "developer in Germany"). Isliye ek
-// city-specific primary query + ek broader fallback query try karte hain.
-const buildQueries = (type, location) => {
-  // Agar user ne "India" (ya kuch generic) diya hai to ek well-known tech
-  // hub city use karte hain taaki Google for Jobs ka match rate behtar ho
-  const isGenericIndia = !location || /^india$/i.test(location.trim());
-  const cityLocation = isGenericIndia ? "Bangalore, India" : location;
+// ✅ Default cities — jab user koi specific location na de, to Delhi NCR
+// (Delhi, Noida, Gurgaon) ke jobs dikhate hain, har city ka apna query
+// (JSearch/Google for Jobs city-level query par best match karta hai)
+const DEFAULT_CITIES = ["Delhi", "Noida", "Gurgaon"];
 
-  const primaryMap = {
-    fresher: `fresher jobs in ${cityLocation}`,
-    graduate: `graduate jobs in ${cityLocation}`,
-    internship: `internship for students in ${cityLocation}`,
+const queryForCity = (type, city) => {
+  const map = {
+    fresher: `fresher jobs in ${city}`,
+    graduate: `graduate jobs in ${city}`,
+    internship: `internship for students in ${city}`,
   };
-
-  // Fallback: agar primary query 0 jobs de, to thoda broader/generic
-  // phrasing try karo (bina "fresher"/"graduate" jaise niche keywords ke,
-  // jo har job listing ke title me literally nahi hota)
-  const fallbackMap = {
-    fresher: `entry level jobs in ${cityLocation}`,
-    graduate: `entry level jobs in ${cityLocation}`,
-    internship: `internship jobs in ${cityLocation}`,
-  };
-
-  return {
-    primary: primaryMap[type] || primaryMap.fresher,
-    fallback: fallbackMap[type] || fallbackMap.fresher,
-  };
+  return map[type] || map.fresher;
 };
 
-// Ek JSearch call karta hai aur parsed jobs array (ya throw) return karta hai
+const fallbackQueryForCity = (type, city) => {
+  const map = {
+    fresher: `entry level jobs in ${city}`,
+    graduate: `entry level jobs in ${city}`,
+    internship: `internship jobs in ${city}`,
+  };
+  return map[type] || map.fresher;
+};
+
+// Ek JSearch call karta hai aur parsed raw jobs array (ya throw) return karta hai
 const callJSearch = async (query) => {
   const url = `${JSEARCH_URL}?query=${encodeURIComponent(query)}&num_pages=1&country=in&date_posted=all`;
 
@@ -62,8 +53,6 @@ const callJSearch = async (query) => {
 
   const json = await response.json();
 
-  // JSearch kabhi kabhi HTTP 200 ke saath bhi status:"ERROR" bhejta hai
-  // (e.g. wrong plan, endpoint not included in subscription)
   if (json?.status === "ERROR") {
     console.error("getExternalJobs: JSearch returned status ERROR:", JSON.stringify(json).slice(0, 1000));
     const err = new Error(json?.error?.message || "JSearch API returned an error");
@@ -71,8 +60,6 @@ const callJSearch = async (query) => {
     throw err;
   }
 
-  // search-v2 ka response shape thoda vary kar sakta hai — kayi possible
-  // locations check karte hain jahan jobs array ho sakta hai
   let rawJobs = [];
   if (Array.isArray(json?.data?.jobs)) {
     rawJobs = json.data.jobs;
@@ -100,6 +87,16 @@ const callJSearch = async (query) => {
   return rawJobs;
 };
 
+// City ke liye jobs laata hai — primary query try karo, khaali aaye to
+// fallback query bhi try karo
+const fetchJobsForCity = async (type, city) => {
+  let rawJobs = await callJSearch(queryForCity(type, city));
+  if (rawJobs.length === 0) {
+    rawJobs = await callJSearch(fallbackQueryForCity(type, city));
+  }
+  return rawJobs;
+};
+
 const mapJobs = (rawJobs) =>
   rawJobs.map((j) => ({
     id: j.job_id,
@@ -121,6 +118,17 @@ const mapJobs = (rawJobs) =>
     source: "external",
   }));
 
+// job_id par dedupe karta hai — same job kabhi kabhi 2 shehron ki search
+// me duplicate aa sakti hai (e.g. "Delhi/NCR" wali listing)
+const dedupeById = (jobs) => {
+  const seen = new Set();
+  return jobs.filter((j) => {
+    if (!j.id || seen.has(j.id)) return false;
+    seen.add(j.id);
+    return true;
+  });
+};
+
 // ── GET /api/placement/external-jobs?type=fresher&location=India&page=1 ──
 export const getExternalJobs = async (req, res) => {
   try {
@@ -132,27 +140,38 @@ export const getExternalJobs = async (req, res) => {
     }
 
     const { type = "fresher", location = "India", page = "1" } = req.query;
-    const { primary, fallback } = buildQueries(type, location);
 
-    const cacheKey = `${type}:${location}:${page}`;
+    // Agar user ne specific location di hai (India/generic nahi), to sirf
+    // usi city ke liye search karo. Warna default Delhi NCR (Delhi, Noida,
+    // Gurgaon) — teeno ka combined result dikhao.
+    const isGenericIndia = !location || /^india$/i.test(location.trim());
+    const cities = isGenericIndia ? DEFAULT_CITIES : [location];
+
+    const cacheKey = `${type}:${cities.join(",")}:${page}`;
     const cached = cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return res.json({ success: true, data: cached.data, cached: true });
     }
 
-    let rawJobs = await callJSearch(primary);
+    // ✅ Sabhi cities ke liye parallel me fetch karo aur combine/dedupe karo
+    const results = await Promise.allSettled(
+      cities.map((city) => fetchJobsForCity(type, city))
+    );
 
-    // ✅ Primary query khaali aayi to broader fallback query try karo
-    // pehle response bhejne se pehle — isse "No jobs found" kam dikhega
-    if (rawJobs.length === 0) {
-      console.warn("getExternalJobs: primary query empty, trying fallback:", fallback);
-      rawJobs = await callJSearch(fallback);
+    let rawJobs = [];
+    results.forEach((r) => {
+      if (r.status === "fulfilled") rawJobs = rawJobs.concat(r.value);
+    });
+
+    // Agar sabhi cities fail ho gayi (koi bhi fulfilled nahi), to asli
+    // upstream error surface karo instead of silently "0 jobs"
+    const allFailed = results.every((r) => r.status === "rejected");
+    if (allFailed && results.length > 0) {
+      throw results[0].reason;
     }
 
-    const jobs = mapJobs(rawJobs);
+    const jobs = dedupeById(mapJobs(rawJobs));
 
-    // Sirf non-empty results cache karo — agar kabhi transient empty response
-    // aa jaaye toh wo 1 ghante ke liye stuck na ho jaaye
     if (jobs.length > 0) {
       cache.set(cacheKey, { data: jobs, expiresAt: Date.now() + CACHE_TTL_MS });
     }
