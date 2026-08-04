@@ -63,8 +63,14 @@ export const getExternalJobs = async (req, res) => {
       rawJobs = json.data;
     } else if (Array.isArray(json?.data?.jobs)) {
       rawJobs = json.data.jobs;
+    } else if (Array.isArray(json?.data?.results)) {
+      rawJobs = json.data.results;
+    } else if (Array.isArray(json?.data?.data)) {
+      rawJobs = json.data.data;
     } else if (Array.isArray(json?.jobs)) {
       rawJobs = json.jobs;
+    } else if (Array.isArray(json?.results)) {
+      rawJobs = json.results;
     } else if (Array.isArray(json)) {
       rawJobs = json;
     } else {
@@ -79,7 +85,7 @@ export const getExternalJobs = async (req, res) => {
     // Debug: har request par saaf log — isse pata chalega ki JSearch se
     // asal mein kitni jobs aayi, chahe result khaali hi kyu na ho
     console.log(
-      `getExternalJobs debug: query="${query}" status="${json?.status}" rawJobs.length=${rawJobs.length} json_top_keys=${JSON.stringify(Object.keys(json || {}))}`
+      `getExternalJobs debug: query="${query}" status="${json?.status}" rawJobs.length=${rawJobs.length} json_top_keys=${JSON.stringify(Object.keys(json || {}))} data_type=${Array.isArray(json?.data) ? "array" : typeof json?.data} data_keys=${JSON.stringify(typeof json?.data === "object" && json?.data ? Object.keys(json.data) : null)}`
     );
     if (rawJobs.length > 0) {
       console.log(
