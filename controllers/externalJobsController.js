@@ -1,9 +1,27 @@
 // controllers/externalJobsController.js
 // JSearch (RapidAPI) se fresher/graduate jobs & internships fetch karta hai.
-// Free-tier request quota bachane ke liye simple in-memory cache use kiya hai.
+//
+// ✅ Performance fixes (isse pehle har frontend request seedha JSearch tak
+// jaati thi aur poora dataset ek saath bhej diya jaata tha):
+//   1. In-memory TTL cache (SOFT_TTL par stale-while-revalidate,
+//      HARD_TTL par forced refetch) — JSearch quota bhi bachta hai.
+//   2. In-flight request de-duplication — same key ke liye ek time par
+//      sirf EK upstream call jaati hai, baaki sab usi promise ko await
+//      karte hain (duplicate parallel calls avoid).
+//   3. Server-side pagination (page/limit) — pehli request me sirf
+//      15 jobs bhejta hai, baaki "Load More" par.
+//   4. Response payload chhota — sirf zaroori fields, description
+//      truncate (list view ko poori JD ki zaroorat nahi).
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const cache = new Map(); // key -> { data, expiresAt }
+const SOFT_TTL_MS = 5 * 60 * 1000;   // isse pehle tak cache "fresh" hai, seedha serve karo
+const HARD_TTL_MS = 30 * 60 * 1000;  // isse baad cache "dead" hai, forced refetch karna hi hoga
+
+const DEFAULT_LIMIT = 15;
+const MAX_LIMIT = 30;
+const MAX_DESCRIPTION_CHARS = 1500; // list/detail dono ke liye kaafi, poori raw JD nahi
+
+const cache = new Map();     // key -> { data, fetchedAt }
+const inFlight = new Map();  // key -> Promise (duplicate upstream calls rokne ke liye)
 
 const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search-v2";
 
@@ -97,6 +115,13 @@ const fetchJobsForCity = async (type, city) => {
   return rawJobs;
 };
 
+const truncate = (text, max) => {
+  if (!text) return "";
+  const clean = String(text).replace(/\s+/g, " ").trim();
+  return clean.length > max ? clean.slice(0, max) + "…" : clean;
+};
+
+// ✅ Sirf frontend ko chahiye wale fields — baaki JSearch ka raw payload drop
 const mapJobs = (rawJobs) =>
   rawJobs.map((j) => ({
     id: j.job_id,
@@ -107,7 +132,7 @@ const mapJobs = (rawJobs) =>
       [j.job_city, j.job_state, j.job_country].filter(Boolean).join(", ") ||
       "Not specified",
     employmentType: j.job_employment_type || "N/A",
-    description: j.job_description || "",
+    description: truncate(j.job_description, MAX_DESCRIPTION_CHARS),
     applyLink: j.job_apply_link || "",
     postedAt: j.job_posted_at_datetime_utc || null,
     isRemote: !!j.job_is_remote,
@@ -129,7 +154,72 @@ const dedupeById = (jobs) => {
   });
 };
 
-// ── GET /api/placement/external-jobs?type=fresher&location=India&page=1 ──
+// Cities ke liye actual upstream fetch + map + dedupe (no caching logic here)
+const fetchFromUpstream = async (type, cities) => {
+  const results = await Promise.allSettled(
+    cities.map((city) => fetchJobsForCity(type, city))
+  );
+
+  let rawJobs = [];
+  results.forEach((r) => {
+    if (r.status === "fulfilled") rawJobs = rawJobs.concat(r.value);
+  });
+
+  const allFailed = results.every((r) => r.status === "rejected");
+  if (allFailed && results.length > 0) {
+    throw results[0].reason;
+  }
+
+  return dedupeById(mapJobs(rawJobs));
+};
+
+// ✅ Cache + in-flight dedupe ke saath poora dataset laata hai (pagination
+// se independent — ek baar fetch, kई pages usi se serve hote hain).
+// Stale-while-revalidate: SOFT_TTL ke baad bhi purana data turant serve
+// hota hai jabki background me nayi request chal rahi hoti hai; HARD_TTL
+// ke baad forced (blocking) refetch hota hai.
+const getJobsDataset = async (type, cities) => {
+  const key = `${type}:${cities.join(",")}`;
+  const now = Date.now();
+  const cached = cache.get(key);
+
+  const isFresh = cached && now - cached.fetchedAt < SOFT_TTL_MS;
+  const isDead = !cached || now - cached.fetchedAt >= HARD_TTL_MS;
+
+  const triggerBackgroundRefresh = () => {
+    if (inFlight.has(key)) return inFlight.get(key); // pehle se hi ek refresh chal rahi hai — usi ko share karo
+    const p = fetchFromUpstream(type, cities)
+      .then((jobs) => {
+        if (jobs.length > 0) cache.set(key, { data: jobs, fetchedAt: Date.now() });
+        return jobs;
+      })
+      .catch((err) => {
+        console.error(`Refresh failed for ${key}:`, err.message);
+        throw err;
+      })
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, p);
+    return p;
+  };
+
+  if (isFresh) {
+    return { data: cached.data, cached: true };
+  }
+
+  if (cached && !isDead) {
+    // Stale but usable — turant purana data do, background me refresh karo
+    triggerBackgroundRefresh();
+    return { data: cached.data, cached: true, stale: true };
+  }
+
+  // Cache dead ya khaali — refetch ka wait karna padega. Agar isi key ke
+  // liye pehle se koi in-flight request chal rahi hai, usi ko await karo
+  // (duplicate parallel JSearch calls avoid).
+  const data = await triggerBackgroundRefresh();
+  return { data, cached: false };
+};
+
+// ── GET /api/placement/external-jobs?type=fresher&location=India&page=1&limit=15 ──
 export const getExternalJobs = async (req, res) => {
   try {
     if (!process.env.RAPIDAPI_KEY) {
@@ -139,7 +229,10 @@ export const getExternalJobs = async (req, res) => {
       });
     }
 
-    const { type = "fresher", location = "India", page = "1" } = req.query;
+    const { type = "fresher", location = "India" } = req.query;
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || DEFAULT_LIMIT));
 
     // Agar user ne specific location di hai (India/generic nahi), to sirf
     // usi city ke liye search karo. Warna default Delhi NCR (Delhi, Noida,
@@ -147,36 +240,21 @@ export const getExternalJobs = async (req, res) => {
     const isGenericIndia = !location || /^india$/i.test(location.trim());
     const cities = isGenericIndia ? DEFAULT_CITIES : [location];
 
-    const cacheKey = `${type}:${cities.join(",")}:${page}`;
-    const cached = cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return res.json({ success: true, data: cached.data, cached: true });
-    }
+    const { data: allJobs, cached, stale } = await getJobsDataset(type, cities);
 
-    // ✅ Sabhi cities ke liye parallel me fetch karo aur combine/dedupe karo
-    const results = await Promise.allSettled(
-      cities.map((city) => fetchJobsForCity(type, city))
-    );
+    const start = (page - 1) * limit;
+    const pageJobs = allJobs.slice(start, start + limit);
 
-    let rawJobs = [];
-    results.forEach((r) => {
-      if (r.status === "fulfilled") rawJobs = rawJobs.concat(r.value);
+    res.json({
+      success: true,
+      data: pageJobs,
+      page,
+      limit,
+      total: allJobs.length,
+      hasMore: start + limit < allJobs.length,
+      cached: !!cached,
+      stale: !!stale,
     });
-
-    // Agar sabhi cities fail ho gayi (koi bhi fulfilled nahi), to asli
-    // upstream error surface karo instead of silently "0 jobs"
-    const allFailed = results.every((r) => r.status === "rejected");
-    if (allFailed && results.length > 0) {
-      throw results[0].reason;
-    }
-
-    const jobs = dedupeById(mapJobs(rawJobs));
-
-    if (jobs.length > 0) {
-      cache.set(cacheKey, { data: jobs, expiresAt: Date.now() + CACHE_TTL_MS });
-    }
-
-    res.json({ success: true, data: jobs, cached: false });
   } catch (err) {
     console.error("getExternalJobs error:", err.message);
     if (err.isUpstream) {
