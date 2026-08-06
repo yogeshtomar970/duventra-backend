@@ -1,10 +1,18 @@
 // controllers/externalJobsController.js
-// JSearch (RapidAPI) se fresher/graduate jobs & internships fetch karta hai.
+// ✅ Ab Adzuna API use karta hai (pehle RapidAPI/JSearch tha, jiska free
+// tier bahut jaldi khatam ho jaata tha). Adzuna ka free tier ~1000
+// calls/month hai, aur India (country code "in") support karta hai —
+// aur humari caching ke saath (neeche) actual upstream calls din me
+// mushkil se dus-bees hi lagti hain, isliye 1000/month me aaraam se aa jaata hai.
 //
-// ✅ Performance fixes (isse pehle har frontend request seedha JSearch tak
-// jaati thi aur poora dataset ek saath bhej diya jaata tha):
+// Adzuna free keys yahan se milti hain (RapidAPI jaisi koi middle-man
+// nahi): https://developer.adzuna.com/  →  ADZUNA_APP_ID + ADZUNA_APP_KEY
+// .env me daalo.
+//
+// ✅ Performance fixes (isse pehle har frontend request seedha upstream
+// tak jaati thi aur poora dataset ek saath bhej diya jaata tha):
 //   1. In-memory TTL cache (SOFT_TTL par stale-while-revalidate,
-//      HARD_TTL par forced refetch) — JSearch quota bhi bachta hai.
+//      HARD_TTL par forced refetch) — upstream quota bhi bachta hai.
 //   2. In-flight request de-duplication — same key ke liye ek time par
 //      sirf EK upstream call jaati hai, baaki sab usi promise ko await
 //      karte hain (duplicate parallel calls avoid).
@@ -19,100 +27,62 @@ const HARD_TTL_MS = 30 * 60 * 1000;  // isse baad cache "dead" hai, forced refet
 const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 30;
 const MAX_DESCRIPTION_CHARS = 1500; // list/detail dono ke liye kaafi, poori raw JD nahi
+const RESULTS_PER_CITY = 20;        // ek city ke liye Adzuna se ek call me kitne results maangne hain
 
 const cache = new Map();     // key -> { data, fetchedAt }
 const inFlight = new Map();  // key -> Promise (duplicate upstream calls rokne ke liye)
 
-const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search-v2";
+const ADZUNA_COUNTRY = "in"; // India
 
 // ✅ Default cities — jab user koi specific location na de, to Delhi NCR
-// (Delhi, Noida, Gurgaon) ke jobs dikhate hain, har city ka apna query
-// (JSearch/Google for Jobs city-level query par best match karta hai)
+// (Delhi, Noida, Gurgaon) ke jobs dikhate hain
 const DEFAULT_CITIES = ["Delhi", "Noida", "Gurgaon"];
 
-const queryForCity = (type, city) => {
+const queryForType = (type) => {
   const map = {
-    fresher: `fresher jobs in ${city}`,
-    graduate: `graduate jobs in ${city}`,
-    internship: `internship for students in ${city}`,
+    fresher: "fresher",
+    graduate: "graduate",
+    internship: "internship",
   };
   return map[type] || map.fresher;
 };
 
-const fallbackQueryForCity = (type, city) => {
-  const map = {
-    fresher: `entry level jobs in ${city}`,
-    graduate: `entry level jobs in ${city}`,
-    internship: `internship jobs in ${city}`,
-  };
-  return map[type] || map.fresher;
-};
-
-// Ek JSearch call karta hai aur parsed raw jobs array (ya throw) return karta hai
-const callJSearch = async (query) => {
-  const url = `${JSEARCH_URL}?query=${encodeURIComponent(query)}&num_pages=1&country=in&date_posted=all`;
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "x-rapidapi-key": process.env.RAPIDAPI_KEY,
-      "x-rapidapi-host": "jsearch.p.rapidapi.com",
-    },
+// Ek Adzuna call karta hai (ek city ke liye) aur raw results array return karta hai
+const callAdzuna = async (type, city) => {
+  const params = new URLSearchParams({
+    app_id: process.env.ADZUNA_APP_ID,
+    app_key: process.env.ADZUNA_APP_KEY,
+    what: queryForType(type),
+    where: city,
+    results_per_page: String(RESULTS_PER_CITY),
+    sort_by: "date",
+    "content-type": "application/json",
   });
+
+  const url = `https://api.adzuna.com/v1/api/jobs/${ADZUNA_COUNTRY}/search/1?${params.toString()}`;
+
+  const response = await fetch(url);
 
   if (!response.ok) {
     const text = await response.text();
-    console.error("JSearch API HTTP error:", response.status, text.slice(0, 500));
-    const err = new Error("JSearch API HTTP error");
+    console.error("Adzuna API HTTP error:", response.status, text.slice(0, 500));
+    const err = new Error("Adzuna API HTTP error");
     err.isUpstream = true;
     throw err;
   }
 
   const json = await response.json();
 
-  if (json?.status === "ERROR") {
-    console.error("getExternalJobs: JSearch returned status ERROR:", JSON.stringify(json).slice(0, 1000));
-    const err = new Error(json?.error?.message || "JSearch API returned an error");
-    err.isUpstream = true;
-    throw err;
+  if (!Array.isArray(json?.results)) {
+    console.error("getExternalJobs: unexpected Adzuna response shape, keys:", Object.keys(json || {}));
+    return [];
   }
 
-  let rawJobs = [];
-  if (Array.isArray(json?.data?.jobs)) {
-    rawJobs = json.data.jobs;
-  } else if (Array.isArray(json?.data)) {
-    rawJobs = json.data;
-  } else if (Array.isArray(json?.jobs)) {
-    rawJobs = json.jobs;
-  } else if (Array.isArray(json)) {
-    rawJobs = json;
-  } else {
-    console.error(
-      "getExternalJobs: unexpected response shape, top-level keys:",
-      Object.keys(json || {})
-    );
+  if (json.results.length === 0) {
+    console.error("getExternalJobs: 0 results for", type, city);
   }
 
-  if (rawJobs.length === 0) {
-    console.error(
-      "getExternalJobs: got 0 raw jobs for query:", query,
-      "| status:", json?.status,
-      "| request_id:", json?.request_id
-    );
-  }
-
-  return rawJobs;
-};
-
-// City ke liye jobs laata hai — primary query try karo, khaali aaye to
-// fallback query bhi try karo
-const fetchJobsForCity = async (type, city) => {
-  let rawJobs = await callJSearch(queryForCity(type, city));
-  if (rawJobs.length === 0) {
-    rawJobs = await callJSearch(fallbackQueryForCity(type, city));
-  }
-  return rawJobs;
+  return json.results;
 };
 
 const truncate = (text, max) => {
@@ -121,29 +91,37 @@ const truncate = (text, max) => {
   return clean.length > max ? clean.slice(0, max) + "…" : clean;
 };
 
-// ✅ Sirf frontend ko chahiye wale fields — baaki JSearch ka raw payload drop
+// Adzuna contract_time/contract_type ko ek readable label me convert karta hai
+const employmentTypeLabel = (job) => {
+  const parts = [];
+  if (job.contract_time === "full_time") parts.push("Full-time");
+  else if (job.contract_time === "part_time") parts.push("Part-time");
+  if (job.contract_type === "permanent") parts.push("Permanent");
+  else if (job.contract_type === "contract") parts.push("Contract");
+  return parts.length > 0 ? parts.join(" · ") : "N/A";
+};
+
+// ✅ Sirf frontend ko chahiye wale fields — baaki Adzuna ka raw payload drop
 const mapJobs = (rawJobs) =>
   rawJobs.map((j) => ({
-    id: j.job_id,
-    title: j.job_title,
-    company: j.employer_name,
-    companyLogo: j.employer_logo || "",
-    location:
-      [j.job_city, j.job_state, j.job_country].filter(Boolean).join(", ") ||
-      "Not specified",
-    employmentType: j.job_employment_type || "N/A",
-    description: truncate(j.job_description, MAX_DESCRIPTION_CHARS),
-    applyLink: j.job_apply_link || "",
-    postedAt: j.job_posted_at_datetime_utc || null,
-    isRemote: !!j.job_is_remote,
-    minSalary: j.job_min_salary,
-    maxSalary: j.job_max_salary,
-    salaryCurrency: j.job_salary_currency,
-    publisher: j.job_publisher || "",
+    id: j.id,
+    title: j.title,
+    company: j.company?.display_name || "Unknown company",
+    companyLogo: "", // Adzuna logo nahi deta
+    location: j.location?.display_name || "Not specified",
+    employmentType: employmentTypeLabel(j),
+    description: truncate(j.description, MAX_DESCRIPTION_CHARS),
+    applyLink: j.redirect_url || "",
+    postedAt: j.created || null,
+    isRemote: /remote/i.test(j.title || "") || /remote/i.test(j.location?.display_name || ""),
+    minSalary: j.salary_min,
+    maxSalary: j.salary_max,
+    salaryCurrency: "INR",
+    publisher: "Adzuna",
     source: "external",
   }));
 
-// job_id par dedupe karta hai — same job kabhi kabhi 2 shehron ki search
+// job id par dedupe karta hai — same job kabhi kabhi 2 shehron ki search
 // me duplicate aa sakti hai (e.g. "Delhi/NCR" wali listing)
 const dedupeById = (jobs) => {
   const seen = new Set();
@@ -157,7 +135,7 @@ const dedupeById = (jobs) => {
 // Cities ke liye actual upstream fetch + map + dedupe (no caching logic here)
 const fetchFromUpstream = async (type, cities) => {
   const results = await Promise.allSettled(
-    cities.map((city) => fetchJobsForCity(type, city))
+    cities.map((city) => callAdzuna(type, city))
   );
 
   let rawJobs = [];
@@ -214,7 +192,7 @@ const getJobsDataset = async (type, cities) => {
 
   // Cache dead ya khaali — refetch ka wait karna padega. Agar isi key ke
   // liye pehle se koi in-flight request chal rahi hai, usi ko await karo
-  // (duplicate parallel JSearch calls avoid).
+  // (duplicate parallel upstream calls avoid).
   const data = await triggerBackgroundRefresh();
   return { data, cached: false };
 };
@@ -222,10 +200,10 @@ const getJobsDataset = async (type, cities) => {
 // ── GET /api/placement/external-jobs?type=fresher&location=India&page=1&limit=15 ──
 export const getExternalJobs = async (req, res) => {
   try {
-    if (!process.env.RAPIDAPI_KEY) {
+    if (!process.env.ADZUNA_APP_ID || !process.env.ADZUNA_APP_KEY) {
       return res.status(500).json({
         success: false,
-        message: "RAPIDAPI_KEY not set in .env — JSearch abhi configure nahi hai",
+        message: "ADZUNA_APP_ID / ADZUNA_APP_KEY .env me set nahi hain — https://developer.adzuna.com/ se free key lelo",
       });
     }
 
