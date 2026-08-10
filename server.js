@@ -7,8 +7,10 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
+import cron from "node-cron";
 import connectDB from "./config/db.js";
 import { generalLimiter } from "./middlewares/rateLimiter.js";
+import { refreshExternalJobs } from "./utils/externalJobsSync.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
@@ -117,8 +119,22 @@ const io = new Server(server, {
 setIO(io);
 initSocket(io);
 
-connectDB().then(() =>
+connectDB().then(() => {
   server.listen(PORT, "0.0.0.0", () =>
     console.log(`✅  Server + Socket.IO → http://localhost:${PORT}`),
-  ),
-);
+  );
+
+  // ✅ External jobs (Adzuna → MongoDB) sync
+  // 1. Server start hote hi ek baar chalao — taaki DB kabhi khaali na mile
+  // 2. Uske baad din me 4 baar (har 6 ghante — 12am, 6am, 12pm, 6pm IST)
+  //    cron se automatically refresh hota rahega.
+  refreshExternalJobs().catch((err) =>
+    console.error("Initial external jobs sync failed:", err.message),
+  );
+
+  cron.schedule("0 */6 * * *", () => {
+    refreshExternalJobs().catch((err) =>
+      console.error("Scheduled external jobs sync failed:", err.message),
+    );
+  });
+});
