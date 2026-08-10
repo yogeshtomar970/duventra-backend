@@ -131,7 +131,8 @@ connectDB().then(() => {
   refreshExternalJobs().catch((err) =>
     console.error("Initial external jobs sync failed:", err.message),
   );
-
+ 
+  
   cron.schedule("0 */6 * * *", () => {
     refreshExternalJobs().catch((err) =>
       console.error("Scheduled external jobs sync failed:", err.message),
