@@ -11,9 +11,14 @@ const RESULTS_PER_CITY = 20;
 const MAX_DESCRIPTION_CHARS = 1500;
 
 // ✅ Ab sirf 2 categories — "job" (fresher + graduate combine) aur "internship"
-const CATEGORY_QUERIES = {
-  job: "graduate OR fresher OR entry level",
-  internship: "internship",
+// NOTE: Adzuna ka "what" param pure string ko literal phrase treat karta
+// hai — "graduate OR fresher" bhejne par wo literally "OR" word wali jobs
+// dhoondhta hai (jo ~0 results deta hai). OR-matching ke liye Adzuna ka
+// alag "what_or" param chahiye (space-separated keywords, kisi ek se bhi
+// match ho to job aa jaati hai).
+const CATEGORY_KEYWORDS = {
+  job: ["graduate", "fresher", "entry-level"],
+  internship: ["internship"],
 };
 
 const DEFAULT_CITIES = ["Delhi", "Noida", "Gurgaon"];
@@ -39,15 +44,24 @@ const payStatusFor = (minSalary, maxSalary) => {
 };
 
 const callAdzuna = async (category, city) => {
+  const keywords = CATEGORY_KEYWORDS[category];
+
   const params = new URLSearchParams({
     app_id: process.env.ADZUNA_APP_ID,
     app_key: process.env.ADZUNA_APP_KEY,
-    what: CATEGORY_QUERIES[category],
     where: city,
     results_per_page: String(RESULTS_PER_CITY),
     sort_by: "date",
     "content-type": "application/json",
   });
+
+  // ✅ Multiple keywords → "what_or" (OR match, kisi ek word se match ho
+  // jaaye). Single keyword → normal "what" (AND / phrase match) use karo.
+  if (keywords.length > 1) {
+    params.set("what_or", keywords.join(" "));
+  } else {
+    params.set("what", keywords[0]);
+  }
 
   const url = `https://api.adzuna.com/v1/api/jobs/${ADZUNA_COUNTRY}/search/1?${params.toString()}`;
   const response = await fetch(url);
@@ -149,7 +163,7 @@ export const refreshExternalJobs = async () => {
   const start = Date.now();
   const summary = [];
 
-  for (const category of Object.keys(CATEGORY_QUERIES)) {
+  for (const category of Object.keys(CATEGORY_KEYWORDS)) {
     try {
       const res = await syncCategory(category);
       summary.push(res);
